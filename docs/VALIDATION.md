@@ -56,3 +56,8 @@ DB browser tách riêng theo timestamp; không thay dữ liệu server chính. D
 BA-to-web real adapter, trusted context assembly, field-level BA confirmations, provider/model quality, chi phí live, real multi-user auth/RBAC, channel identity/webhook/scheduler/delivery, PDF/DOCX upload, hardening/concurrency/load tests, business UAT, deployment và fresh cloud task restoration đều chưa triển khai hoặc chưa kiểm chứng. Prototype có giới hạn cố ý được ghi tại README/ARCHITECTURE. Không coi schema prototype pass là BA domain pass.
 
 Platform là repo cục bộ mới chưa có remote; không sửa membership 6 repository trong cấu hình. Draft đã lưu hướng dẫn cho source hiện có, chưa chứng minh có thể tái tạo source repo mới chỉ từ Git. Khi cần dùng lâu dài, chọn remote riêng và kiểm chứng snapshot/khôi phục trong bước sau. Publish cấu hình môi trường là thao tác của người dùng, không phải deploy sản phẩm.
+
+
+## Chuẩn bị GitHub remote do người dùng cung cấp
+
+Người dùng chọn `khannitran-coder/Multi-agent-platform`. Đã xác minh Git read thành công, remote chưa quảng bá ref, API cho biết `private=false` và tài khoản có `permissions.push=true`. Yêu cầu chuyển repo sang private qua API bị từ chối với HTTP 403 `Resource not accessible by integration`. Chưa push mã; giữ yêu cầu private đã được người dùng xác nhận. Origin local đã cập nhật sang repo mới, chờ chủ repo đổi visibility. Đây là giới hạn quyền GitHub integration, không phải lỗi proxy/network trước đó.

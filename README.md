@@ -66,4 +66,4 @@ Browser suite dùng Chromium đã cài tại `/usr/bin/chromium`, server riêng 
 - [Worker invocation schema đề xuất](contracts/agent-invocation.schema.json)
 - [Bằng chứng và giới hạn kiểm chứng](docs/VALIDATION.md)
 
-Mã platform nằm hoàn toàn trong repo mới cục bộ `/workspace/pm-agent-platform`, đã có commit cục bộ; đang chuẩn bị remote private `khannitran-coder/pm-agent-platform`, chưa push. Sáu repo ban đầu giữ nguyên. Cấu hình onboarding có hướng dẫn install/start; chưa kiểm chứng khôi phục source repo mới trong một cloud task khác. Khi muốn lưu lên GitHub, cần chọn remote riêng ở một bước sau.
+Mã platform nằm trong checkout `/workspace/pm-agent-platform`, đã commit trên nhánh `main`. Remote do người dùng chọn là `https://github.com/khannitran-coder/Multi-agent-platform.git`. Chưa push: repo đích đang public, trong khi người dùng yêu cầu private; GitHub integration từ chối thao tác đổi visibility (HTTP 403). Cần chủ repo chuyển sang private trước khi push. Sáu repo ban đầu giữ nguyên. Cấu hình onboarding có hướng dẫn install/start; chưa kiểm chứng khôi phục source repo mới trong một cloud task khác.
