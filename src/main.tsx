@@ -48,6 +48,7 @@ import "./styles.css";
 import { api } from "./api";
 import { BaWorkflow, BaRunDetails, BaArtifactBody } from "./BaPanel";
 import { ContextWorkbench } from "./ContextWorkbench";
+import { DocumentsWorkspace, DocumentJobDetails, IntegrationSettings } from "./Documents";
 
 const nav: { id: string; name: string; icon: LucideIcon; subtitle: string }[] =
   [
@@ -56,6 +57,12 @@ const nav: { id: string; name: string; icon: LucideIcon; subtitle: string }[] =
       name: "Tổng quan",
       icon: LayoutDashboard,
       subtitle: "Một nơi cho dự án, con người và AI.",
+    },
+    {
+      id: "documents",
+      name: "Tài liệu & Chạy BA",
+      icon: FileText,
+      subtitle: "Chọn tài liệu. Chạy agent. Review kết quả.",
     },
     {
       id: "agents",
@@ -82,6 +89,12 @@ const nav: { id: string; name: string; icon: LucideIcon; subtitle: string }[] =
       subtitle: "Từ đề xuất của agent đến quyết định của bạn.",
     },
     {
+      id: "settings",
+      name: "Settings",
+      icon: Settings2,
+      subtitle: "Trạng thái kết nối và cấu hình runtime.",
+    },
+    {
       id: "channels",
       name: "Kênh thông báo",
       icon: Send,
@@ -98,6 +111,7 @@ const labels: Record<string, string> = {
   escalated: "Cần operator xử lý",
   awaiting_proposal: "Chờ proposal",
   changes_requested: "Đã yêu cầu sửa",
+  cancelled: "Đã hủy",
 };
 const fmt = (date: string) =>
   new Intl.DateTimeFormat("vi-VN", {
@@ -189,7 +203,8 @@ function App() {
       (e) => page === "overview" || e.run_id === run?.id,
     ) || [];
   const working = run?.state === "queued" || run?.state === "running";
-  const harnessRun = run?.workflow === "ba-harness-fixture";
+  const harnessRun = ["ba-harness-fixture", "ba-project-proposal"].includes(run?.workflow || "");
+  const documentRun = ["ba-documents-demo", "ba-project-proposal"].includes(run?.workflow || "");
   const harnessArtifact = !!artifact?.content.ba_bundle;
 
   function go(view: string, nextRun = rid, nextPid = pid) {
@@ -315,7 +330,7 @@ function App() {
         decision === "reviewed"
           ? "Đã lưu review cho đúng phiên bản. Phê duyệt chính thức vẫn chưa được ghi nhận."
           : harnessArtifact
-            ? "Đã ghi nhận yêu cầu sửa BA fixture. Chỉnh proposal JSON và tạo run mới; pack cũ giữ nguyên."
+            ? "Đã ghi nhận yêu cầu sửa BA. Chỉnh context/proposal và tạo run mới; pack cũ giữ nguyên."
             : "Yêu cầu sửa đã lưu. Worker đang tạo phiên bản mới; bản cũ được giữ nguyên.",
       );
     });
@@ -700,6 +715,8 @@ function App() {
               )}
             </>
           )}
+          {page === "documents" && project && <DocumentsWorkspace key={project.id} project={project} refresh={refresh} opened={id=>go("workspace", id)}/>}
+          {page === "settings" && <IntegrationSettings/>}
           {page === "agents" && (
             <>
               <div className="section-row">
@@ -886,7 +903,7 @@ function App() {
                     </h2>
                     <Badge>
                       {harnessRun
-                        ? "BA CLI thật · fixture · không LLM"
+                        ? (documentRun ? "BA CLI thật · project · không LLM" : "BA CLI thật · fixture · không LLM")
                         : "Mô phỏng · không LLM"}
                     </Badge>
                   </div>
@@ -1002,6 +1019,7 @@ function App() {
                   )}
                 </section>
                 <aside className="context-column">
+                  {documentRun && run && <DocumentJobDetails run={run} refresh={refresh}/>}
                   {harnessRun && run ? (
                     <BaRunDetails run={run} />
                   ) : (
@@ -1061,8 +1079,8 @@ function App() {
                     <Sparkles size={16} />
                     <p>
                       {harnessRun
-                        ? "Fixture công nợ chạy qua BA CLI và canonical/domain validation thật. Notes của project không được đưa vào trusted context. Feedback không tự tạo proposal hoặc phê duyệt."
-                        : "BA đang dùng mẫu cố định để bạn thử UX. Câu trả lời và feedback được lưu thật; chưa có AI phân tích. Bản nháp dùng 3 dòng notes không trống đầu tiên."}
+                        ? (documentRun ? "BA CLI kiểm tra context project giả lập và proposal cung cấp sẵn. Không có model sinh nội dung hoặc thẩm quyền thật; feedback không tự tạo proposal/phê duyệt." : "Fixture công nợ chạy qua BA CLI và canonical/domain validation thật. Notes của project không được đưa vào trusted context. Feedback không tự tạo proposal hoặc phê duyệt.")
+                        : documentRun ? "Bản nháp mẫu dùng tối đa 3 dòng từ mỗi tài liệu đã chọn. Câu trả lời/feedback lưu thật, chưa có AI diễn giải nội dung." : "BA đang dùng mẫu cố định để bạn thử UX. Câu trả lời và feedback được lưu thật; chưa có AI phân tích. Bản nháp dùng 3 dòng notes không trống đầu tiên."}
                     </p>
                   </div>
                 </aside>
@@ -1148,6 +1166,7 @@ function App() {
                           <ArrowRight size={15} />
                         </button>
                       </section>
+                      {documentRun && run && <DocumentJobDetails run={run} refresh={refresh}/>}
                       {harnessRun && run && <BaRunDetails run={run} />}
                       <section className="panel audit-panel">
                         <div className="panel-heading">
@@ -1248,6 +1267,7 @@ function App() {
                         ["stories", "Stories & AC"],
                         ["rtm", "RTM"],
                         ["uat", "UAT plan"],
+                        ["questions", "Câu hỏi"],
                         ["sources", "Nguồn & thay đổi"],
                       ].map(([v, l]) => (
                         <button
@@ -1376,6 +1396,7 @@ function App() {
                             ))}
                           </>
                         )}
+                        {tab === "questions" && <><h2>Câu hỏi cần làm rõ</h2>{artifact.content.questions?.map((q,i)=><p key={i}>{q}</p>) || <p>Xem câu hỏi và câu trả lời trong Agent Workspace của run.</p>}</>}
                         {tab === "sources" && (
                           <div className="provenance">
                             <h3>Nguồn gốc nội dung</h3>
@@ -1393,11 +1414,9 @@ function App() {
                                 Deterministic fixture · không gọi BA harness
                               </dd>
                               <dt>BA đã kiểm tra</dt>
-                              <dd>
-                                Remote 0.2.0 @ 9f786144 · chưa có bằng chứng
-                                0.2.1
-                              </dd>
+                              <dd>BA {agents[0]?.version} @ {agents[0]?.commit?.slice(0,8)} · luồng này chỉ dùng mẫu, không gọi BA harness.</dd>
                             </dl>
+                            {artifact.content.document_sources?.map(d=><article className="requirement" key={d.id}><h3>{d.name} · v{d.version}</h3><p className="mono hash">{d.source_id} · {d.text_hash}</p><p>{d.text}</p></article>)}
                             <h3>Lịch sử phiên bản của run</h3>
                             {artifacts.map((a) => (
                               <button
@@ -1832,10 +1851,10 @@ function MiniSteps({
   horizontal?: boolean;
 }) {
   const done = run?.state === "awaiting_review" || run?.state === "reviewed";
-  const harness = run?.workflow === "ba-harness-fixture";
+  const harness = ["ba-harness-fixture", "ba-project-proposal"].includes(run?.workflow || "");
   const steps = [
     {
-      label: harness ? "Fixture context & proposal" : "Context & notes",
+      label: harness ? "Context & supplied proposal" : "Context & tài liệu",
       sub: "Input được khóa theo phiên bản",
       done: !!run,
       active: false,
@@ -1865,7 +1884,7 @@ function MiniSteps({
     },
     {
       label: harness
-        ? "PM review · fixture pack"
+        ? "PM review · BA pack"
         : run?.workflow === "ba-draft"
           ? "PM review"
           : "PM review & snapshot",
@@ -1971,7 +1990,7 @@ function CreateModal({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            create({ name, objective, notes });
+            create({ name, objective, notes: notes.trim() || "Chưa có notes. Hãy thêm tài liệu trong project." });
           }}
         >
           <label className="field">
@@ -2001,8 +2020,6 @@ function CreateModal({
             Context / notes / SOW nháp
             <textarea
               className="notes-input"
-              required
-              minLength={10}
               maxLength={20000}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

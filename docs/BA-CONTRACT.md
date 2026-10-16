@@ -2,9 +2,9 @@
 
 ## Baseline thực tế
 
-Remote đã đọc ở commit `9f786144e4a84361a373abacf45107c26c2c0262`, agent `0.2.0`, canonical schema `0.2`. Không tự coi đây là v0.2.1. [Reference manifest](../contracts/ba-agent.reference.json) lưu commit/checksum; không copy core hoặc canonical schemas vào platform. [Khảo sát](REPOSITORY-SURVEY.md) ghi hai thời điểm remote thay đổi.
+Remote đã xác nhận tag `v0.2.1`, peeled commit `345a4ef2696922097788736d3e6ea2a8806bf454`, code `VERSION=0.2.1`, canonical schema `0.2`. Pin Git tree có 74 file; khảo sát 0.2.0 là lịch sử. [Reference manifest](../contracts/ba-agent.reference.json) lưu commit/checksum; không copy core hoặc canonical schemas vào platform. [Khảo sát](REPOSITORY-SURVEY.md) ghi hai thời điểm remote thay đổi.
 
-Web hiện có ba workflow. Hai workflow cũ tạo `platform-draft/1` mô phỏng; `ba-harness-fixture` gọi CLI thật trên fixture công nợ, nhập bundle gốc cùng normalized view `ba-view/1`. `contracts/agent-invocation.schema.json` vẫn là design envelope đề xuất; HTTP input thật là `RunInput` và invocation được lưu trong bảng `ba_invocations`. Không tuyên bố envelope đề xuất đã được enforce trong runtime.
+Web hiện có năm workflow, gồm thêm `ba-documents-demo` (mẫu từ phiên bản file đã chọn) và `ba-project-proposal` (context project giả lập + supplied proposal). Hai workflow cũ tạo `platform-draft/1` mô phỏng; `ba-harness-fixture` gọi CLI thật trên fixture công nợ, nhập bundle gốc cùng normalized view `ba-view/1`. `contracts/agent-invocation.schema.json` vẫn là design envelope đề xuất; HTTP input thật là `RunInput` và invocation được lưu trong bảng `ba_invocations`. Không tuyên bố envelope đề xuất đã được enforce trong runtime.
 
 ## Điểm tích hợp
 
@@ -47,7 +47,7 @@ Platform review hiện ghi nhận toàn pack theo artifact_id/version. BA `revie
 
 Không coi exit 2 mặc nhiên là process crash. CLI `--prepare` sau preflight thành công vẫn exit 2 do trạng thái AwaitingProposal. `--demo` dùng proposal fixture; không chứng minh model quality.
 
-Pack gồm `bundle.json`, `review-pack.md`, `audit.json`, `manifest.json`, dưới thư mục hash của run. Bundle có `agent_version, schema_version, project, state, baseline_status, uat_signoff, ba_verification, business_validation, requirements, stories, tests, rtm, review_findings` và phần proposal liên quan. `AwaitingPMReview` không tương đương BA verified, TeamReady, baseline hoặc UAT passed. Story có thể Blocked trong một pack hợp lệ.
+Pack v0.2.1 gồm `proposal.json`, `bundle.json`, `review-pack.md`, `audit.json`, `manifest.json`, dưới thư mục hash của run. Bundle có `agent_version, schema_version, project, state, baseline_status, uat_signoff, ba_verification, business_validation, requirements, stories, tests, rtm, review_findings` và phần proposal liên quan. `AwaitingPMReview` không tương đương BA verified, TeamReady, baseline hoặc UAT passed. Story có thể Blocked trong một pack hợp lệ.
 
 ## Import và handoff được phép
 
@@ -58,7 +58,7 @@ Adapter hiện xác minh trước import:
 3. Manifest file set, full run_hash, từng artifact checksum đúng; bundle canonical/domain validation của harness không bị bỏ qua. Lưu raw pack bất biến cạnh normalized read model.
 4. Mọi source/artifact/parent step cùng project và được cấp quyền tại thời điểm chạy. Idempotency theo project/run/step/input hash/agent commit; replay chỉ reuse pack nguyên vẹn.
 5. Handoff BA `{target, reason, requirement_ids}` chỉ được hiển thị để review. Slice này không tự dispatch handoff sang agent khác. Policy registry/hop/budget cho dynamic handoff vẫn là thiết kế tương lai.
-6. Context fixture/proposal snapshot được lưu theo run; không đưa conversation hay notes project vào authority. CLI timeout kill process group và không nhập partial pack. User-facing cancel chưa triển khai; supplied-proposal không phải runtime sandbox đầy đủ.
+6. Context/proposal snapshot được lưu theo run; không đưa conversation hay notes project vào authority. CLI timeout kill process group và không nhập partial pack. User-facing cancel đã có cho job queued/running/awaiting_input/awaiting_proposal; kết quả muộn không được import vào job đã hủy; supplied-proposal không phải runtime sandbox đầy đủ.
 
 Technical check, business validation và approval vẫn là các gate riêng. Telegram không nhận raw internal BA review pack mặc định vì renderer của agent hiện internal-only, chưa có client-safe filter.
 
@@ -66,4 +66,4 @@ Technical check, business validation và approval vẫn là các gate riêng. Te
 
 Đã nối web → durable worker → BA CLI supplied-proposal → independent canonical/domain/manifest/audit validation → SQLite pack/review. Kiểm thử integration chạy CLI thật, gồm negative proposal, rehashed pack tampering, membership và timeout/retry. UI browser kiểm chứng AC/RTM/raw download/review/gate rejection. Xem `VALIDATION.md` và `BA-INTEGRATION.md`.
 
-Trusted context hiện chỉ là fixture pinned; arbitrary project-context assembly, live model, field-level trusted reviews và automatic feedback-to-proposal chưa triển khai. Review whole pack không thay `context.reviews[]`.
+Ngoài fixture pinned, context chuẩn bị có thể chạy thử trên project giả lập qua `preparation_id` + đúng danh sách `document_version_ids` + supplied proposal. HTTP không nhận arbitrary context/principals/reviews. Backend kiểm commit/hash, exact source ID/version/text/hash và synthetic acknowledgement. Chưa có thẩm quyền thật, live model, field-level trusted reviews hoặc automatic feedback-to-proposal. Review whole pack không thay `context.reviews[]`.

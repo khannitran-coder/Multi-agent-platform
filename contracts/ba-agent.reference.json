@@ -1,15 +1,15 @@
 {
-  "contract_status": "connected-supplied-proposal-fixture",
+  "contract_status": "connected-supplied-proposal",
   "agent_id": "ba-requirements",
   "repository": "khannitran-coder/Ba-Pm-agent",
-  "commit": "9f786144e4a84361a373abacf45107c26c2c0262",
-  "observed_agent_version": "0.2.0",
+  "commit": "345a4ef2696922097788736d3e6ea2a8806bf454",
+  "observed_agent_version": "0.2.1",
   "schema_version": "0.2",
-  "v0_2_1_remote_confirmed": false,
+  "v0_2_1_remote_confirmed": true,
   "schema_sha256": {
     "context": "b34d16155b725d22810a5e74ea4988a618ff01f356a22bec85e0fb0b9fa2744c",
     "proposal": "0d8597b1db9caec62200089cc18fe724ea5a471e942bdccbdb7e983d58240627",
-    "bundle": "ff126d6276f6147c577b267eb1683a3b6b561ae93b6250a4fa635e832a41533a"
+    "bundle": "2a02c3821cfeac9bb419b0c7142297c7fb3821bbfe6277e9171e99e99d73762f"
   },
   "capabilities": [
     "requirements.draft",
@@ -18,9 +18,13 @@
     "uat-plan.draft"
   ],
   "entrypoint": "agent.py",
-  "safe_modes_for_next_slice": ["prepare", "supplied-proposal"],
+  "safe_modes_for_next_slice": [
+    "prepare",
+    "supplied-proposal"
+  ],
   "live_model_enabled": false,
   "runtime_installation": "git-archive-dependency-cache",
   "web_workflow": "ba-harness-fixture",
-  "trusted_context": "pinned synthetic fixture only"
+  "trusted_context": "fixed fixture or synthetic project preparation; no real authority",
+  "tag": "v0.2.1"
 }

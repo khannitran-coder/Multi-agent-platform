@@ -17,7 +17,8 @@ def main():
     if bundle != agent.compile_bundle(proposal, context):
         raise ValueError('Bundle does not match the validated input/proposal')
     fingerprints = agent.fingerprints()
-    expected = agent.digest({'context':context,'proposal':proposal,'version':agent.VERSION,'fingerprints':fingerprints})
+    expected = agent.digest({'context':context,'proposal':proposal,'version':agent.VERSION,'fingerprints':fingerprints,
+                             'adapter':'supplied-proposal','requested_model':None})
     if (audit['run_hash'] != expected or audit['input_hash'] != agent.digest(context)
             or audit['fingerprints'] != fingerprints or audit['adapter'] != 'supplied-proposal'
             or audit['agent_version'] != agent.VERSION):

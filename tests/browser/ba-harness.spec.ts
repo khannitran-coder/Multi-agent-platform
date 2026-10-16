@@ -67,6 +67,7 @@ test("real BA fixture imports a verified pack, exposes all AC and records review
   expect(Object.keys(manifest.files).sort()).toEqual([
     "audit.json",
     "bundle.json",
+    "proposal.json",
     "review-pack.md",
   ]);
   await page.getByRole("button", { name: "Yêu cầu", exact: true }).click();

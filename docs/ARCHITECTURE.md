@@ -38,6 +38,11 @@ erDiagram
     PROJECT ||--|{ SOURCE_VERSION : owns
     SOURCE_VERSION ||--o{ RUN : pinned_input
     PROJECT ||--o{ RUN : executes
+    PROJECT ||--o{ DOCUMENT : owns
+    DOCUMENT ||--o{ DOCUMENT_VERSION : versions
+    DOCUMENT_VERSION }o--o| SOURCE_VERSION : extracted_text
+    RUN ||--o| JOB_INPUT : snapshots
+    PROJECT ||--o{ CONTEXT_PREPARATION : prepares
     RUN ||--o{ MESSAGE : contains
     RUN ||--o{ ARTIFACT_VERSION : produces
     ARTIFACT_VERSION ||--o{ REVIEW : records
@@ -59,11 +64,15 @@ erDiagram
 | snapshot | project/run, text, timestamp; internal read model |
 | channel | project, enabled preference, schedule, updated_at; không lưu credential |
 | ba_invocations | immutable fixture context/proposal snapshot, input hash, agent commit, BA state/result |
-| ba_packs | nguyên văn bundle/review-pack/audit/manifest đã xác minh, liên kết artifact/run_hash |
+| ba_packs | nguyên văn proposal/bundle/review-pack/audit/manifest đã xác minh, liên kết artifact/run_hash |
+| documents / document_versions | upload hoặc link Drive; raw hash/status, per-document version và source text ID |
+| job_inputs | run/job ID, immutable document versions/text/hash snapshot; một vòng đời job/run |
+| agents | registry contracts/version persist, đồng bộ từ code khi init |
+| context_preparations | context/form/hash/commit/preflight, authority chưa xác thực |
 
 DB có foreign keys và transactional writes. Access vào project/run/artifact/snapshot đi qua membership gate chung. Audit ghi text do người dùng nhập được giữ như dữ liệu và React escape khi hiển thị. Hash không phải chữ ký và audit SQLite không chống sửa bởi người có quyền ghi file.
 
-Mở rộng sau: users + verified memberships, workflow_version, agent_version/commit, run_step/attempt ledger, explicit question và answer source versions, artifact URI/object store, approval(signature authority/version/hash), channel_identity, delivery outbox/deduplication, retention metadata. Hiện chưa lưu nguyên workflow definition theo version nên không thay registry giữa các run đang chạy.
+Mở rộng sau: users + verified memberships, workflow_version, agent_version/commit, run_step/attempt ledger, explicit question và answer source versions, artifact URI/object store, approval(signature authority/version/hash), channel_identity, delivery outbox/deduplication, retention metadata. Hiện chưa lưu nguyên workflow definition theo version nên không thay registry giữa các run đang chạy. Upload parser/body limit và supplied-proposal project được mô tả trong MVP-DOCUMENTS.md; parser subprocess timeout 10s, memory 512 MiB và CPU 8s, không OCR.
 
 ## Luồng Requirements Discovery mô phỏng đang chạy
 
@@ -125,4 +134,4 @@ Hiện chỉ có web demo membership gate; preview dùng cùng API response, kh�
 
 ## Giới hạn có chủ đích
 
-Không real auth/multi-tenant hardening, migrations, backup/restore tooling, file parsing, content redaction, full body/rate limits, live costs, complete observability, distributed locks hoặc long-run management. Không dùng prototype cho dữ liệu thật hoặc public access. Chưa xác nhận business UAT/product acceptance; các test kỹ thuật chỉ là bằng chứng hành vi phần mềm ở phạm vi này.
+Không real auth/multi-tenant hardening, migrations, backup/restore tooling, content redaction, general body/rate limits, live costs, complete observability, distributed locks hoặc long-run management. Không dùng prototype cho dữ liệu thật hoặc public access. Chưa xác nhận business UAT/product acceptance; các test kỹ thuật chỉ là bằng chứng hành vi phần mềm ở phạm vi này.

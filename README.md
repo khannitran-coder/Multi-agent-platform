@@ -1,4 +1,4 @@
-# Agent Desk — AI project operations prototype
+# Agent Desk — multi-agent PM platform MVP
 
 Web platform cục bộ cho PM điều phối nhiều agent, trao đổi làm rõ và review artifact theo phiên bản. UI tiếng Việt, responsive; **không deploy, không gọi model, không kết nối tài khoản ngoài**.
 
@@ -16,9 +16,13 @@ Server phục vụ cả UI build và API ở địa chỉ loopback `127.0.0.1`, 
 
 Để sửa UI với hot reload, giữ backend ở cổng 8000 và chạy `npm run dev` trong terminal khác (Vite cổng 5173). Vite proxy API về backend; production build trong lệnh start chỉ là bước đóng gói UI local.
 
-Hành trình thử trong khoảng 3 phút:
+Hành trình mới: **Tạo project → Tài liệu & Chạy BA → upload TXT/MD/PDF/DOCX hoặc dùng tài liệu mẫu → chọn phiên bản → xác nhận dữ liệu giả lập → Chạy BA Agent · mẫu không tốn token → trả lời câu hỏi → xem draft → yêu cầu sửa/review/download**. Link Drive chỉ lưu và báo chưa có quyền đọc, không yêu cầu file công khai. [Hướng dẫn cho người non-tech](docs/LOCAL-GUIDE.md) · [kiến trúc tài liệu/job](docs/MVP-DOCUMENTS.md).
 
-1. Chọn **Tạo project → Dùng ví dụ mẫu**, sửa tên/notes rồi tạo. Notes là văn bản nhập trực tiếp, chưa có upload PDF/DOCX.
+Upload tối đa 5 MiB/file, whitelist extension/MIME và kiểm cấu trúc, trích xuất tối đa 100 KB/100 trang PDF. PDF scan cần bản có text, chưa OCR. Raw upload nằm trong `.local/uploads/`, không đưa vào Git; snapshot job giữ nguyên nguồn cũ khi upload phiên bản mới. Job có thể hủy ở Workspace/Run & Handoff để sửa đầu vào. Trang **Settings** hiển thị Google Drive/BA/model; không chứa token.
+
+Hành trình mô phỏng notes cũ vẫn chạy được:
+
+1. Chọn **Tạo project → Dùng ví dụ mẫu**, sửa tên/notes rồi tạo. Khi tạo project mới, notes có thể để trống và thêm file sau.
 2. Trong **Agent Workspace**, chọn **Chạy workflow**. Worker đọc notes và dừng ở câu hỏi làm rõ.
 3. Trả lời phạm vi ưu tiên và người review; bấm **Trả lời & chạy tiếp**. Khoảng 2 giây sau có review pack v1.
 4. Mở pack, thử các tab Yêu cầu, Stories & AC, RTM, UAT plan, Nguồn & thay đổi.
@@ -36,15 +40,15 @@ Vào **Agent & Workflow → Chuẩn bị context BA**:
 3. Bấm **Kiểm tra và lưu context** để thấy các trường thiếu từ canonical schema/preflight BA thật. Chỉ xác nhận synthetic-only khi các nguồn đúng là giả lập.
 4. Bổ sung thông tin rồi kiểm tra lại. Chọn bản cũ trong lịch sử hoặc dùng cấu hình cũ để tạo snapshot mới; kết quả cũ giữ nguyên.
 
-Đây là **bàn chuẩn bị**, chưa nối context project vào workflow sinh artifact. Schema/preflight đạt không xác minh quyền, ý nghĩa SOW hoặc phê duyệt. Tên người khai báo chưa được xác thực; execution luôn blocked, business pending, approval not_approved. Không có model, không tự đưa proposal công nợ vào context project. Luồng end-to-end mô phỏng và harness fixture bên dưới vẫn chạy như trước.
+Context này có thể dùng trong **Tài liệu & Chạy BA → Nâng cao** với proposal canonical cung cấp sẵn và đúng các phiên bản tài liệu. Chỉ thử nguồn giả lập; không có model hoặc tự dùng proposal công nợ cho tài liệu khác. Schema/preflight đạt chưa xác minh quyền, ý nghĩa SOW hoặc phê duyệt. `execution=blocked` trên preparation là quyền thực thi nghiệp vụ thật; chế độ supplied-proposal chỉ chạy thử offline, business pending và approval not_approved. Tên người khai báo chưa xác thực. Context chuẩn bị bằng phiên bản BA cũ phải được kiểm tra/lưu lại trước khi chạy.
 
 ## Thử BA harness thật bằng fixture
 
-Trong **Agent & Workflow**, chọn **Chạy BA harness fixture**. Workflow dùng context/SOW/notes công nợ và proposal có sẵn từ BA `0.2.0` @ `9f786144…`. Nó không dùng notes tùy ý của project để suy ra trusted context hoặc quyền phê duyệt.
+Trong **Agent & Workflow**, chọn **Chạy BA harness fixture**. Đã xác nhận tag remote `v0.2.1` có code version 0.2.1, peeled commit **`345a4ef2696922097788736d3e6ea2a8806bf454`**, schema 0.2. Workflow fixture dùng context/proposal công nợ cố định. Workflow nâng cao `ba-project-proposal` dùng snapshot context + supplied proposal của project, không gọi model. Không suy ra quyền từ notes.
 
 - Worker gọi BA CLI `--proposal`, kiểm tra canonical schema + domain, audit/fingerprints và manifest SHA-256, rồi nhập pack vào SQLite.
 - **Stories & AC** hiển thị đủ happy/edge/error; **RTM** và **UAT plan** lấy nguyên từ bundle.
-- **Nguồn & thay đổi** cho tải `bundle.json`, `review-pack.md`, `audit.json`, `manifest.json` nguyên bản đã xác minh.
+- **Nguồn & thay đổi** cho tải `proposal.json`, `bundle.json`, `review-pack.md`, `audit.json`, `manifest.json` nguyên bản đã xác minh.
 - Mở **Chỉnh proposal JSON** và **Nạp proposal mẫu** để thử sửa proposal. Ví dụ đổi evidence source ID thành giá trị không tồn tại: BA sẽ trả `Escalated`, hiển thị findings và không nhập artifact.
 - **Ghi nhận đã review** chỉ ghi quyết định platform. **Yêu cầu sửa** giữ nguyên pack và dừng tại `changes_requested`; operator sửa proposal và tạo run mới. Chưa có model tự diễn giải feedback hoặc field-level BA confirmations.
 
@@ -60,7 +64,10 @@ Trong **Agent & Workflow**, chọn **Chạy BA harness fixture**. Workflow dùng
 | Run limits, timeout/retry, stale review guard | Có thực thi và kiểm thử; chỉ có các workflow cố định |
 | Artifact versions, JSON export, review, audit, snapshot | Lưu thật; content bất biến, review metadata được cập nhật |
 | Requirements Discovery / BA Draft | Mô phỏng theo notes; chưa có model phân tích |
-| Context workbench | Nguồn/snapshot/hash/audit lưu thật; canonical preflight BA thật, chưa dispatch context project |
+| Context workbench | Nguồn/snapshot/hash/audit và canonical preflight thật; nối supplied-proposal project ở chế độ giả lập |
+| Upload/Drive | Parser TXT/MD/PDF/DOCX thật; Drive chỉ lưu link, chưa có OAuth/read access |
+| BA Documents Demo | Lấy tối đa 3 dòng từ mỗi tài liệu đã chọn; không diễn giải ngữ nghĩa bằng model |
+| BA Project Proposal | BA v0.2.1 thật kiểm tra proposal cung cấp sẵn trên context project giả lập |
 | BA Harness Fixture | BA CLI thật với fixture/supplied proposal; canonical/domain/manifest checks thật, không gọi model |
 | QA handoff, Snapshot Writer | Vẫn là các bước mô phỏng/tóm tắt nội bộ |
 | Nội dung bản nháp | Dùng tối đa 3 dòng notes không trống đầu, answer và feedback; không hiểu ngữ nghĩa, không tự giải quyết feedback |
@@ -76,7 +83,7 @@ SQLite mặc định `.local/platform.db` (ignored). Chọn file khác bằng `P
 ## Kiểm thử
 
 ```bash
-.venv/bin/python -m pytest tests/test_api.py tests/test_ba_integration.py tests/test_context_workbench.py -q
+.venv/bin/python -m pytest tests -q
 npm run build
 npm run test:e2e
 ```

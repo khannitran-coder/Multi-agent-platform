@@ -161,8 +161,7 @@ export function BaRunDetails({ run }: { run: Run }) {
             <strong>{data.context.project}</strong>
           </p>
           <p>
-            Input: fixture cố định + supplied proposal. Không dùng notes của
-            project.
+            {run.workflow === 'ba-project-proposal' ? 'Input: snapshot context project giả lập + supplied proposal; không gọi model.' : 'Input: fixture cố định + supplied proposal. Không dùng notes của project.'}
           </p>
           <dl>
             <dt>Commit pin</dt>
@@ -181,7 +180,7 @@ export function BaRunDetails({ run }: { run: Run }) {
             </details>
           )}
           <details>
-            <summary>Nguồn fixture đã khóa</summary>
+            <summary>Nguồn context đã khóa</summary>
             {data.context.sources.map((s) => (
               <div className="ba-source" key={s.id}>
                 <strong>{s.id}</strong>
@@ -206,7 +205,7 @@ export function BaArtifactBody({
   return (
     <div className="document-body ba-document">
       <div className="document-eyebrow">
-        REAL BA HARNESS / SUPPLIED PROPOSAL / SYNTHETIC FIXTURE
+        REAL BA HARNESS / SUPPLIED PROPOSAL / SYNTHETIC DATA
       </div>
       <h2>{artifact.content.title}</h2>
       <p className="document-intro">{artifact.content.summary}</p>
@@ -218,8 +217,7 @@ export function BaArtifactBody({
       <div className="clarification-note">
         <strong>Giới hạn dữ liệu và review</strong>
         <p>
-          Pack này dùng fixture công nợ, không phải kết quả phân tích notes của
-          project. BA verification: {bundle.ba_verification}; business
+          {artifact.content.mode === 'ba-project-proposal' ? 'Pack này dùng context project giả lập và proposal cung cấp sẵn. Nội dung không được model sinh tự động.' : 'Pack này dùng fixture công nợ, không phải kết quả phân tích notes của project.'} BA verification: {bundle.ba_verification}; business
           validation: {bundle.business_validation}; baseline:{" "}
           {bundle.baseline_status}; UAT sign-off: {bundle.uat_signoff}.
         </p>
@@ -381,6 +379,7 @@ export function BaArtifactBody({
           </dl>
           <div className="ba-downloads">
             {[
+              ...(artifact.content.origin?.agent_version === '0.2.1' ? ['proposal.json'] : []),
               "bundle.json",
               "review-pack.md",
               "audit.json",
@@ -408,6 +407,7 @@ export function BaArtifactBody({
           ))}
         </div>
       )}
+      {tab === 'questions' && <><h3>Câu hỏi / conflicts</h3><pre className="json-output">{JSON.stringify({questions:bundle.questions,conflicts:bundle.conflicts},null,2)}</pre></>}
     </div>
   );
 }

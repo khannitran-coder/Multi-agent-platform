@@ -10,7 +10,7 @@ class Strict(BaseModel):
 class ProjectInput(Strict):
     name: str = Field(min_length=2, max_length=120)
     objective: str = Field(min_length=3, max_length=2000)
-    notes: str = Field(min_length=10, max_length=20000)
+    notes: str = Field(default='Chưa có notes. Hãy thêm tài liệu trong project.', min_length=10, max_length=20000)
 
 class TextInput(Strict):
     text: str = Field(min_length=3, max_length=5000)
@@ -41,17 +41,35 @@ class ContextInput(Strict):
         return self
 
 class RunInput(Strict):
-    workflow: Literal['requirements-discovery', 'ba-draft', 'ba-harness-fixture'] = 'requirements-discovery'
+    workflow: Literal['requirements-discovery', 'ba-draft', 'ba-harness-fixture', 'ba-documents-demo', 'ba-project-proposal'] = 'requirements-discovery'
     proposal: dict | None = None
+    document_version_ids: list[str] = Field(default_factory=list, max_length=20)
+    preparation_id: str | None = Field(default=None, max_length=100)
+    synthetic_only: bool = False
 
     @model_validator(mode='after')
     def bounded_proposal(self):
         if self.proposal is not None:
-            if self.workflow != 'ba-harness-fixture':
-                raise ValueError('Proposal JSON chỉ dùng cho workflow BA Harness Fixture.')
+            if self.workflow not in ('ba-harness-fixture', 'ba-project-proposal'):
+                raise ValueError('Proposal JSON chỉ dùng cho workflow BA harness.')
             if len(json.dumps(self.proposal,ensure_ascii=False,allow_nan=False).encode()) > 200_000:
                 raise ValueError('Proposal vượt giới hạn 200 KB.')
+        project_workflow = self.workflow in ('ba-documents-demo', 'ba-project-proposal')
+        if project_workflow and (not self.document_version_ids or not self.synthetic_only):
+            raise ValueError('Chọn tài liệu và xác nhận dữ liệu giả lập để chạy thử.')
+        if len(self.document_version_ids) != len(set(self.document_version_ids)):
+            raise ValueError('Phiên bản tài liệu không được trùng.')
+        if not project_workflow and (self.document_version_ids or self.preparation_id or self.synthetic_only):
+            raise ValueError('Tùy chọn tài liệu chỉ dành workflow project.')
+        if self.workflow == 'ba-project-proposal' and (not self.preparation_id or self.proposal is None):
+            raise ValueError('BA project cần context chuẩn bị và proposal cung cấp sẵn.')
+        if self.workflow != 'ba-project-proposal' and self.preparation_id:
+            raise ValueError('Context chuẩn bị chỉ dùng cho supplied-proposal project.')
         return self
+
+class DriveInput(Strict):
+    name: str = Field(min_length=1, max_length=120)
+    url: str = Field(min_length=10, max_length=2000)
 
 class ReviewInput(Strict):
     decision: Literal['reviewed', 'needs_changes']
@@ -92,7 +110,7 @@ class Draft(Strict):
 BA_REFERENCE = json.loads((Path(__file__).resolve().parents[1] / "contracts/ba-agent.reference.json").read_text())
 
 REGISTRY = [
-    dict(id='ba', name='BA Requirements', version=BA_REFERENCE['observed_agent_version'], commit=BA_REFERENCE['commit'], category='Discovery', capability='Requirements · Stories · AC · RTM · UAT plan', mode='simulation', input_schema='context.schema.json @ 9f786144', output_schema='bundle.schema.json @ 9f786144', platform_output='platform-draft/1', available=True),
+    dict(id='ba', name='BA Requirements', version=BA_REFERENCE['observed_agent_version'], commit=BA_REFERENCE['commit'], category='Discovery', capability='Requirements · Stories · AC · RTM · UAT plan', mode='simulation', input_schema='context.schema.json @ '+BA_REFERENCE['commit'][:8], output_schema='bundle.schema.json @ '+BA_REFERENCE['commit'][:8], platform_output='platform-draft/1', available=True),
     dict(id='qa', name='QA Reviewer', version='fixture-1', category='Quality', capability='Rà soát cấu trúc bản nháp và coverage', mode='simulation', input_schema='platform-draft/1', output_schema='qa-fixture/1', available=True),
     dict(id='snapshot', name='Snapshot Writer', version='fixture-1', category='Reporting', capability='Tóm tắt run từ dữ liệu project', mode='simulation', input_schema='run-summary/1', output_schema='snapshot/1', available=True),
     dict(id='risk', name='Risk Monitor', version='planned', category='Monitoring', capability='Tương quan tín hiệu và cảnh báo blocker', mode='planned', input_schema='Chưa đăng ký', output_schema='Chưa đăng ký', available=False),

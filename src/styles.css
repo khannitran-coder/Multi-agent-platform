@@ -3368,3 +3368,19 @@ table + .muted {
 .context-workbench dt { font-size: 12px; color: var(--muted); margin-top: 12px; }
 .context-workbench dd { margin: 5px 0 0; }
 .context-workbench .context-source input { accent-color: #355d45; }
+.documents-intro, .documents-list, .document-job-launch, .integration-settings, .document-job-details { padding: 26px; margin: 20px 0; min-width: 0; }
+.document-input-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 24px; margin-top: 22px; }
+.document-input-grid > div, .document-input-grid > form { min-width: 0; }
+.upload-box, .drive-box { padding: 24px; border: 1px solid #dfe5d9; background: #fafbf7; border-radius: 12px; }
+.documents-intro p, .document-job-launch p, .integration-settings p { line-height: 1.7; margin: 12px 0; }
+.project-document { padding: 20px 0; border-top: 1px solid #e7ebe3; }
+.project-document h3 { display: flex; gap: 8px; align-items: center; overflow-wrap: anywhere; }
+.document-version { border-left: 3px solid #e0e8d8; padding-left: 16px; margin: 12px 0; }
+.document-version a { display: inline-flex; gap: 6px; }
+.version-upload { font-size: 12px; max-width: 260px; }
+.version-upload input { width: 100%; display: block; margin-top: 8px; }
+.project-proposal { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e7ebe3; }
+.project-proposal summary, .document-job-details summary { cursor: pointer; font-weight: 600; }
+.document-job-details details { margin: 16px 0; }
+.documents-intro input[type=file] { width: 100%; min-width: 0; }
+@media(max-width:800px) { .document-input-grid { grid-template-columns: minmax(0,1fr); } .documents-intro, .documents-list, .document-job-launch, .integration-settings, .document-job-details { padding: 18px; } .project-document .section-row { align-items: flex-start; flex-direction: column; gap: 14px; } }

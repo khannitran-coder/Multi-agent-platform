@@ -1,14 +1,14 @@
-# BA fixture integration — v0.2 platform slice
+# BA v0.2.1 integration — fixture và project supplied-proposal
 
 ## Project context preparation (new)
 
-A separate workbench now snapshots selected project source versions and checks them through the pinned canonical BA preflight. It does not dispatch them as agent invocations or change the fixed fixture workflow. See [context contract and limits](CONTEXT-WORKBENCH.md). Technical pass remains separate from authority, business review and formal approval.
+A separate workbench now snapshots selected project source versions and checks them through the pinned canonical BA preflight. A preparation can now be bound to `ba-project-proposal` with exactly matching uploaded document versions, explicit synthetic acknowledgement and a supplied proposal. Fixed fixture behavior remains independent; real authority is still unverified. See [context contract and limits](CONTEXT-WORKBENCH.md). Technical pass remains separate from authority, business review and formal approval.
 
 ## Luồng chạy được
 
 Chọn project → Agent & Workflow → BA Harness Fixture → supplied proposal (mặc định fixture, có thể chỉnh JSON) → worker → BA CLI → kiểm tra pack → artifact → review.
 
-Fixture dùng đúng context/proposal công nợ từ commit BA `9f786144e4a84361a373abacf45107c26c2c0262`, code vẫn version `0.2.0`. Đây là chạy harness thật trên dữ liệu giả lập. Không gọi model, không phân tích arbitrary project notes, không kết nối account nghiệp vụ, không gửi Telegram/Slack.
+Fixture dùng đúng context/proposal công nợ từ tag `v0.2.1` / commit `345a4ef2696922097788736d3e6ea2a8806bf454`, code version `0.2.1`. Đây là chạy harness thật trên dữ liệu giả lập. Không gọi model, không phân tích arbitrary project notes, không kết nối account nghiệp vụ, không gửi Telegram/Slack.
 
 ## Dependency và module boundaries
 
@@ -32,7 +32,7 @@ Hai bảng mới được tạo additive khi init, không reset DB:
 | Bảng | Nội dung |
 |---|---|
 | ba_invocations | run ID, canonical context/proposal snapshot, input SHA, agent commit, state/result |
-| ba_packs | artifact ID, nguyên văn 4 file UTF-8, full run hash |
+| ba_packs | artifact ID, nguyên văn 5 file UTF-8 (thêm proposal.json), full run hash |
 
 Harness run có `runs.source_id=null` vì không sử dụng notes project. Lineage fixture nằm trong immutable invocation và bundle sources. File download trả đúng byte UTF-8 đã hash; review không ghi vào source/output file. Content artifact/raw pack không đổi khi business metadata thay đổi.
 
@@ -44,6 +44,12 @@ CLI timeout 15s; independent verify timeout 10s; lease 35s; một retry cho runt
 
 `reviewed`: ghi review platform; canonical `ba_verification`, `business_validation`, baseline và UAT sign-off không đổi. `needs_changes`: chuyển `changes_requested`, giữ pack, operator chỉnh proposal để tạo run mới. Không sinh v2 giả từ feedback và không chuyển review này thành BA field confirmation.
 
+## Project documents / jobs
+
+`POST /api/projects/{pid}/documents/upload` nhận multipart file; optional query document_id tạo phiên bản mới. TXT/MD/PDF/DOCX có parser thật, giới hạn request/file/text/page/ZIP/time/memory. `POST .../documents/drive` chỉ lưu URL Google chuẩn hóa, không fetch. `GET /api/document-versions/{vid}/download` kiểm membership và hash. `GET /api/jobs/{rid}` trả input snapshot/state; `POST .../cancel` hủy job. Registry contracts được lưu trong bảng agents.
+
+`ba-documents-demo` khóa document_version_ids thành job_inputs, dùng tối đa ba dòng mỗi file và hỗ trợ hỏi/đáp/revision/review. `ba-project-proposal` cần preparation_id, proposal JSON và exact nguồn của các phiên bản file được chọn. Context khai báo phải synthetic-only; mọi role chưa xác thực. Adapter revalidates canonical/domain lúc chạy. Tài liệu/notes không cấp quyền hoặc confirmation; context.reviews luôn trống. Pack proposal phải khớp snapshot đầu vào, audit run hash bao gồm adapter/requested_model theo v0.2.1.
+
 ## Lát cắt tiếp theo
 
-Làm trusted-context workbench: nhập và version hóa nguồn/SOW, khai báo operator-controlled authority/data policy, validation preflight và rõ owner câu hỏi. Kết hợp authenticated project roles trước khi đưa dữ liệu thật vào. Sau đó mới cân nhắc model generation trong runtime có isolation/budget thực sự. Dynamic handoff, live connectors, arbitrary context auto-assembly và formal approval đều còn ngoài slice này.
+Workbench, upload và project supplied-proposal đã có. Tiếp theo là identity/project roles và data policy trước dữ liệu thật; sau đó đánh giá model generation với isolation/budget. Kết hợp authenticated project roles trước khi đưa dữ liệu thật vào. Sau đó mới cân nhắc model generation trong runtime có isolation/budget thực sự. Dynamic handoff, live connectors, arbitrary context auto-assembly và formal approval đều còn ngoài slice này.

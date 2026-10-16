@@ -4,7 +4,7 @@ import json
 import time
 from . import store as db
 from .contracts import Draft
-from . import ba_jobs, ba_adapter
+from . import ba_jobs, ba_adapter, documents
 
 def tick():
     jobs=[]
@@ -13,7 +13,7 @@ def tick():
             r = dict(raw)
             c.execute('SAVEPOINT worker_step')
             try:
-                if r['workflow']==ba_adapter.WORKFLOW:
+                if r['workflow'] in ba_adapter.WORKFLOWS:
                     if ba_jobs.claim(c,r):jobs.append(r['id'])
                     c.execute('RELEASE worker_step')
                     continue
@@ -52,7 +52,11 @@ def advance(c, r):
         source = dict(c.execute('SELECT * FROM sources WHERE id=?', (r['source_id'],)).fetchone())
         project = dict(c.execute('SELECT * FROM projects WHERE id=?', (pid,)).fetchone())
         answer = c.execute("SELECT text FROM messages WHERE run_id=? AND role='user' ORDER BY rowid DESC LIMIT 1", (rid,)).fetchone()[0]
-        draft = make_draft(project, source, answer, r['feedback'])
+        if r['workflow']=='ba-documents-demo':
+            _, docs=documents.demo_source(c,r)
+            draft=make_document_draft(project,docs,answer,r['feedback'])
+        else:
+            draft = make_draft(project, source, answer, r['feedback'])
         serialized = json.dumps(draft, ensure_ascii=False, sort_keys=True)
         c.execute('INSERT INTO artifacts VALUES (?,?,?,?,?,?,?,?,?,?)', (db.uid('art'), pid, rid, r['version'], serialized, db.digest(serialized), 'schema_passed', 'pending', 'not_approved', db.now()))
         db.event(c, pid, rid, 'ba.drafted', f'BA tạo bản v{r["version"]} từ mẫu; hash và nguồn đã lưu.', 'ba-simulator')
@@ -83,6 +87,24 @@ def make_draft(project, source, answer, feedback):
     return Draft.model_validate(dict(schema_version='platform-draft/1', mode='simulation', title=f'Requirements · {project["name"]}',
         summary=project['objective'], source_id=source['id'], source_hash=source['hash'], answer=answer,
         change_request=feedback, requirements=requirements, stories=stories, uat_status='Not Started')).model_dump()
+
+def make_document_draft(project, docs, answer, feedback):
+    requirements=[]; stories=[]
+    for doc in docs:
+        source={'id':doc['source_id'],'hash':doc['text_hash'],'text':doc['text'],'version':doc['source_version']}
+        part=make_draft(project,source,answer,feedback)
+        for req, story in zip(part['requirements'],part['stories']):
+            index=len(requirements)+1
+            req['id']=f'REQ-{index:02}'; story['id']=f'US-{index:02}'; story['requirement_id']=req['id']
+            story['when']='Thực hiện hành vi được nêu tại '+req['id']
+            requirements.append(req); stories.append(story)
+    raw=ba_adapter.canonical(docs)
+    result=Draft.model_validate(dict(schema_version='platform-draft/1',mode='simulation',title='Requirements · '+project['name'],
+        summary=project['objective'],source_id='selected-document-versions',source_hash=db.digest(raw),answer=answer,
+        change_request=feedback,requirements=requirements,stories=stories,uat_status='Not Started')).model_dump()
+    result['document_sources']=docs
+    result['questions']=['Ai chịu trách nhiệm review/phê duyệt và phạm vi nào được ưu tiên? Đã ghi nhận: '+answer]
+    return result
 
 async def loop():
     while True:

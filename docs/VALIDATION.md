@@ -1,4 +1,27 @@
-# Kiểm chứng context workbench — 16/10/2026
+# Kiểm chứng MVP tài liệu và BA v0.2.1 — 16/10/2026
+
+| Kiểm tra hiện tại | Kết quả |
+|---|---|
+| `.venv/bin/python -m pytest tests -q` | **44 passed**, 0 failed/skipped/xfail; một Starlette/AnyIO deprecation warning |
+| `npm run build` | PASS TypeScript/Vite |
+| `npm run test:e2e` | **10 passed** Chromium desktop/mobile |
+| `bash scripts/install.sh` | PASS frozen platform dependencies + BA runtime pin + npm ci/build; cài lại không đổi tracked lockfiles |
+| `bash scripts/start.sh` + HTTP journey | PASS health/UI/assets, upload → question → answer → draft → revision v2 → review, exact raw download/hash |
+| BA remote read-only | Tag v0.2.1 peeled commit `345a4ef2696922097788736d3e6ea2a8806bf454`, VERSION=0.2.1, schema=0.2; 74 Git blob checksums |
+
+Đã đọc thật TXT/Markdown/PDF có text/DOCX. Negative tests gồm file giả/traversal/MIME sai/binary text/ZIP bomb/XML entity, body quá lớn kể cả chunked, text quá lớn, PDF scan/mật khẩu/quá 100 trang. Không gọi Drive dù link được lưu; nguồn chưa đọc được không tạo job. Kiểm quyền chéo project/download/job và immutable input qua phiên bản mới.
+
+BA v0.2.1 chạy thật qua CLI với context project giả lập + supplied proposal, canonical/domain/bundle/proposal/audit/manifest được xác minh, raw pack 5 file tải được. Sai nguồn trả gate và không có artifact. Context thiếu hoặc cần sửa có thể hủy job để chạy lại; chưa có model tự hiểu câu trả lời trong chế độ supplied-proposal.
+
+Các hành trình browser gồm: upload + Drive → hỏi đáp → revision/review/download, mobile lỗi upload/cancel, BA project supplied-proposal thật, và toàn bộ fixture/context/notes journey cũ. Một lượt mới đầu dùng nhầm selector nút review; sửa theo nhãn UI thực tế và rerun toàn suite đạt. Không tắt assertion, không mock BA validator.
+
+Main instance giữ ví dụ synthetic **Orion · MVP tài liệu (giả lập)** (`prj-afd080cb434d`, run `run-1f85a57d2577`), artifact v2 đã ghi review nhưng `approval=not_approved`, UAT chưa chạy. Server current-instance PID 6122 được khởi động bởi phiên này; không giả định process tồn tại sau Publish.
+
+Evidence ignored: `.local/evidence/13-documents.png`, `13-documents-job.png`, `14-documents-mobile.png`, `15-project-ba-v021.png`, browser-results.json. Screenshot/data đều giả lập. Technical checks không phải business acceptance, authenticated authority hoặc production validation. Không model trả phí, OAuth, Telegram, Jira write hoặc deploy.
+
+Các mục dưới đây là kết quả lịch sử trước lát cắt này; pin/count hiện tại ở trên.
+
+## Lịch sử: context workbench — 16/10/2026
 
 Lát cắt hiện tại bổ sung chuẩn bị context từ nguồn project; chưa dispatch context này vào BA. Kiểm tra canonical schema/preflight thật qua runtime pin; danh tính/thẩm quyền vẫn chưa xác thực.
 

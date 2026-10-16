@@ -37,7 +37,7 @@ def test_real_pack_full_ac_rtm_manifest_and_operator_boundaries(client):
     p=read(client,pid);a=p['artifacts'][0];b=a['content']['ba_bundle']
     assert p['runs'][0]['state']=='awaiting_review' and p['runs'][0]['source_id'] is None
     assert a['technical']=='ba_schema_domain_manifest_passed' and a['approval']=='not_approved'
-    assert b['project']=='Demo — Báo cáo công nợ' and b['agent_version']=='0.2.0'
+    assert b['project']=='Demo — Báo cáo công nợ' and b['agent_version']=='0.2.1'
     assert {r['id'] for r in b['requirements']}=={'REQ-01','REQ-02'}
     assert b['requirements'][0]['description']=='Xuất báo cáo công nợ Excel theo khoảng ngày'
     assert {ac['kind'] for ac in b['stories'][0]['acceptance_criteria']}=={'happy','edge','error'}

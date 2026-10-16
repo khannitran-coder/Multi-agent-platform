@@ -29,7 +29,7 @@ Tạo project và objective → nhập notes/SOW → chọn BA hoặc Requiremen
 - Decision log và approval gate riêng với reviewer/approver thực sự được xác thực.
 - Telegram read-only `/status`, `/latest`, snapshot sau opt-in và identity linking; detailed review về web.
 
-Prototype hiện đã cho thử UX của phần lớn hành trình này. BA supplied-proposal fixture adapter đã nối web. Auth, trusted context cho arbitrary notes, artifact diff, cancel, deadline người dùng và budget model còn chưa triển khai. File input chỉ có nhập text; không có parser PDF/DOCX hoặc quản lý kho file.
+Prototype hiện đã cho thử UX của phần lớn hành trình này. BA supplied-proposal fixture adapter đã nối web. Auth, trusted context cho arbitrary notes, artifact diff, deadline người dùng và budget model còn chưa triển khai. Upload TXT/MD/PDF/DOCX, Drive link chưa có quyền đọc, document versions và job input snapshots đã chạy thật. Màn hình Settings chuẩn bị Drive/Telegram. Có job cancel; model vẫn tắt.
 
 ## Để sau
 
@@ -49,4 +49,4 @@ Live models và đánh giá chất lượng; risk/progress/weekly-report adapter
 
 Slice **web → BA supplied-proposal fixture → canonical/domain validation → manifest import → artifact review** đã được triển khai và kiểm thử trong `BA-INTEGRATION.md`. Fixture công nợ được pin commit, không đại diện việc phân tích notes tùy ý của project.
 
-Ưu tiên tiếp theo: **trusted-context workbench** cho source/SOW có version và preflight, khai báo data authorization/authority do operator kiểm soát; kết hợp project identity/roles trước khi dùng dữ liệu thật. Sau đó mới đánh giá model generation có runtime isolation và budget. Telegram kết nối sau identity linking/authorization tests; formal approval vẫn là bước riêng.
+Trusted-context preparation, upload và synthetic project supplied-proposal hiện đã có. Ưu tiên tiếp theo: project identity/roles và policy dữ liệu trước khi dùng dữ liệu thật. Jira quản lý thực thi; Drive/Confluence giữ tài liệu; platform điều phối agent/review. Connector thật cần một lát cắt riêng. Sau đó mới đánh giá model generation có runtime isolation và budget. Telegram kết nối sau identity linking/authorization tests; formal approval vẫn là bước riêng.

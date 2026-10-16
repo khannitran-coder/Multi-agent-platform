@@ -7,7 +7,7 @@ from . import ba_adapter, ba_runtime, store as db
 AUTHORITY_BLOCKERS = [
     'Danh tính hiện tại là demo-pm cố định; chưa xác thực người dùng và thẩm quyền theo project.',
     'Vai trò khai báo chỉ để chuẩn bị context; chưa có bằng chứng cấp quyền được kiểm chứng.',
-    'Chưa có adapter chạy BA trên context project. Không gọi model hoặc tự dùng proposal fixture.',
+    'Chỉ cho phép chạy thử supplied-proposal với nguồn project giả lập khớp chính xác. Chưa cấp quyền chạy model hoặc dữ liệu thật.',
 ]
 
 def build(project, sources, body):

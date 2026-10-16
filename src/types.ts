@@ -59,6 +59,9 @@ export interface Artifact {
   created_at: string;
   reviews: Review[];
   content: {
+    mode?: string;
+    document_sources?: {id:string;name:string;version:number;text_hash:string;text:string;source_id:string}[];
+    questions?: string[];
     ba_bundle?: BaBundle;
     ba_sources?: {
       id: string;
@@ -104,6 +107,7 @@ export interface Snapshot {
   created_at: string;
 }
 export interface Project extends ProjectSummary {
+  documents: import('./Documents').ProjectDocument[];
   sources: Source[];
   runs: Run[];
   artifacts: Artifact[];

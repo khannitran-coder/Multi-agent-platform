@@ -9,7 +9,9 @@ from pathlib import Path
 from . import ba_runtime
 
 WORKFLOW = 'ba-harness-fixture'
-FILES = {'bundle.json','review-pack.md','audit.json','manifest.json'}
+PROJECT_WORKFLOW = 'ba-project-proposal'
+WORKFLOWS = {WORKFLOW, PROJECT_WORKFLOW}
+FILES = {'proposal.json','bundle.json','review-pack.md','audit.json','manifest.json'}
 MAX_PACK_FILE = 4_000_000
 
 class AdapterError(Exception):
@@ -96,6 +98,8 @@ def execute(invocation, output_root):
         return {'state':state,'result':result}
     if code!=0 or state!='AwaitingPMReview':raise AdapterError('Unexpected BA exit/state combination')
     raw,manifest=read_files(result.get('output',''),packs)
+    if json.loads(raw['proposal.json']) != proposal:
+        raise PackIntegrityError('Pack proposal differs from invocation snapshot')
     destination=Path(result['output'])
     try:
         verify_code,verified=invoke([python,'-B','-I',ba_runtime.ROOT/'backend/ba_verify.py',source,context_path,proposal_path,destination/'bundle.json',destination/'audit.json'],root,timeout=10)
@@ -109,10 +113,10 @@ def execute(invocation, output_root):
     return {'state':state,'result':{'state':state,'reused':bool(result.get('reused')),'run_hash':manifest['run_hash'],**verified},
             'files':raw,'bundle':json.loads(raw['bundle.json'])}
 
-def view(bundle, context, run_hash):
-    return dict(schema_version='ba-view/1',mode='ba-harness-fixture',title='BA · '+bundle['project'],summary=bundle['summary'],
-        source_id='BA fixture context',source_hash=hashlib.sha256(canonical(context).encode()).hexdigest(),
-        answer='Fixture công nợ cố định; không phân tích notes của project. Principal/review trong fixture không phải danh tính thật.',
+def view(bundle, context, run_hash, workflow=WORKFLOW):
+    return dict(schema_version='ba-view/1',mode=workflow,title='BA · '+bundle['project'],summary=bundle['summary'],
+        source_id='BA context snapshot',source_hash=hashlib.sha256(canonical(context).encode()).hexdigest(),
+        answer='Supplied proposal; không có model sinh nội dung. Principal/review trong prototype không phải danh tính thật.',
         change_request='',uat_status='Not Started',
         requirements=[dict(id=r['id'],title=r['description'],description=r['business_need'],
             evidence='; '.join(f'{e["source_id"]}:L{e["line"]} ({e["source_version"]}) — {e["quote"]}' for e in r['evidence']),priority=r['priority']+' · đề xuất') for r in bundle['requirements']],

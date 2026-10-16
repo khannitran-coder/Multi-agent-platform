@@ -72,8 +72,16 @@ def init():
         CREATE TABLE IF NOT EXISTS ba_invocations(run_id TEXT PRIMARY KEY REFERENCES runs(id),context_json TEXT,proposal_json TEXT,input_hash TEXT,agent_commit TEXT,state TEXT,result_json TEXT);
         CREATE TABLE IF NOT EXISTS context_preparations(id TEXT PRIMARY KEY,project_id TEXT REFERENCES projects(id),context_json TEXT,input_json TEXT,context_hash TEXT,agent_commit TEXT,result_json TEXT,created_at TEXT);
         CREATE TABLE IF NOT EXISTS ba_packs(artifact_id TEXT PRIMARY KEY REFERENCES artifacts(id),files_json TEXT,run_hash TEXT);
+        CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY,project_id TEXT REFERENCES projects(id),name TEXT,kind TEXT,drive_url TEXT,access_status TEXT,created_at TEXT);
+        CREATE TABLE IF NOT EXISTS document_versions(id TEXT PRIMARY KEY,document_id TEXT REFERENCES documents(id),version INTEGER,source_id TEXT REFERENCES sources(id),filename TEXT,media_type TEXT,size INTEGER,hash TEXT,storage_name TEXT,status TEXT,detail TEXT,created_at TEXT,UNIQUE(document_id,version));
+        CREATE TABLE IF NOT EXISTS job_inputs(run_id TEXT PRIMARY KEY REFERENCES runs(id),documents_json TEXT,input_hash TEXT);
+        CREATE TABLE IF NOT EXISTS agents(id TEXT PRIMARY KEY,version TEXT,contract_json TEXT);
         ''')
     with connect() as c:
+        from .contracts import REGISTRY
+        for agent in REGISTRY:
+            c.execute('INSERT INTO agents VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET version=excluded.version,contract_json=excluded.contract_json',
+                      (agent['id'],agent['version'],json.dumps(agent,ensure_ascii=False,sort_keys=True)))
         if not c.execute('SELECT 1 FROM projects').fetchone():
             create_project(c, 'Atlas · Customer Portal', 'Chuẩn hóa yêu cầu cho cổng tự phục vụ khách hàng, trước khi đưa vào sprint.',
                 'Khách hàng cần tạo yêu cầu hỗ trợ và xem tiến độ xử lý.\nPM cần review các yêu cầu trước khi bàn giao cho đội phát triển.\nCần thông báo khi yêu cầu bị chặn. Chưa thống nhất ai phê duyệt và phạm vi thông báo.')

@@ -19,7 +19,7 @@ def claim(c, r):
         return False
     c.execute("UPDATE runs SET state='running',step='ba_executing',due=?,updated_at=? WHERE id=?", (time.time()+35,db.now(),r['id']))
     c.execute("UPDATE ba_invocations SET state='running' WHERE run_id=?",(r['id'],))
-    db.event(c,r['project_id'],r['id'],'ba.started','Chạy BA CLI supplied-proposal trên context fixture; không gọi model.','ba-worker')
+    db.event(c,r['project_id'],r['id'],'ba.started','Chạy BA CLI supplied-proposal; không gọi model.','ba-worker')
     return True
 
 def failure(c,r,reason,retry=False):
@@ -57,14 +57,17 @@ def execute_job(rid):
             db.event(c,r['project_id'],rid,'ba.gate',f'BA trả {result["state"]}; exit 2 là trạng thái gate, không phải lỗi process.','ba-worker')
             db.message(c,rid,'agent',f'BA trả {result["state"]}. Xem findings trong Chi tiết run. Không có artifact được nhập.')
             return
-        content=ba_adapter.view(result['bundle'],json.loads(invocation['context_json']),result['result']['run_hash'])
+        content=ba_adapter.view(result['bundle'],json.loads(invocation['context_json']),result['result']['run_hash'],r['workflow'])
+        raw_input=c.execute('SELECT documents_json FROM job_inputs WHERE run_id=?',(rid,)).fetchone()
+        if raw_input: content['document_sources']=json.loads(raw_input[0])
         serialized=json.dumps(content,ensure_ascii=False,sort_keys=True,allow_nan=False)
         aid=db.uid('art')
         c.execute('INSERT INTO artifacts VALUES (?,?,?,?,?,?,?,?,?,?)',(aid,r['project_id'],rid,1,serialized,db.digest(serialized),'ba_schema_domain_manifest_passed','pending','not_approved',db.now()))
         c.execute('INSERT INTO ba_packs VALUES (?,?,?)',(aid,json.dumps(result['files'],ensure_ascii=False),result['result']['run_hash']))
         c.execute("UPDATE runs SET state='awaiting_review',step='review',due=0,updated_at=? WHERE id=?",(db.now(),rid))
         db.event(c,r['project_id'],rid,'ba.pack_verified','Canonical schema + domain validation + manifest hash + input/audit fingerprints đạt.','ba-worker')
-        db.event(c,r['project_id'],rid,'ba.imported','Đã nhập bundle/review-pack/audit/manifest từ harness 0.2.0. BA verification, business validation và approval vẫn chờ con người.','ba-worker')
-        db.message(c,rid,'agent','Pack BA thật (fixture công nợ) đã được nhập. Không phân tích notes project; UAT chưa chạy. Mở Artifact để xem mọi AC, RTM và findings.')
+        db.event(c,r['project_id'],rid,'ba.imported','Đã nhập proposal/bundle/review-pack/audit/manifest từ harness '+ba_runtime.REFERENCE['observed_agent_version']+'. BA verification, business validation và approval vẫn chờ con người.','ba-worker')
+        label='fixture công nợ cố định' if r['workflow']==ba_adapter.WORKFLOW else 'context project giả lập + supplied proposal'
+        db.message(c,rid,'agent','Pack BA thật đã nhập từ '+label+'. Không gọi model; UAT chưa chạy. Mở Artifact để review.')
         from .worker import snapshot
         snapshot(c,r,'BA fixture: pack đã qua schema/domain/hash và sẵn sàng review; chưa phê duyệt hoặc nghiệm thu UAT.')
