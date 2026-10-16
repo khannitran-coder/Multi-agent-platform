@@ -66,4 +66,4 @@ Browser suite dùng Chromium đã cài tại `/usr/bin/chromium`, server riêng 
 - [Worker invocation schema đề xuất](contracts/agent-invocation.schema.json)
 - [Bằng chứng và giới hạn kiểm chứng](docs/VALIDATION.md)
 
-Mã platform nằm hoàn toàn trong repo mới cục bộ `/workspace/pm-agent-platform`, chưa có remote/commit/push. Sáu repo ban đầu giữ nguyên. Cấu hình onboarding có hướng dẫn install/start; chưa kiểm chứng khôi phục source repo mới trong một cloud task khác. Khi muốn lưu lên GitHub, cần chọn remote riêng ở một bước sau.
+Mã platform nằm hoàn toàn trong repo mới cục bộ `/workspace/pm-agent-platform`, đã có commit cục bộ; đang chuẩn bị remote private `khannitran-coder/pm-agent-platform`, chưa push. Sáu repo ban đầu giữ nguyên. Cấu hình onboarding có hướng dẫn install/start; chưa kiểm chứng khôi phục source repo mới trong một cloud task khác. Khi muốn lưu lên GitHub, cần chọn remote riêng ở một bước sau.
