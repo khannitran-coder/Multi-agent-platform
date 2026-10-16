@@ -3346,3 +3346,25 @@ table + .muted {
     font-size: 9px;
   }
 }
+
+.context-workbench { margin: 20px 0; padding: 28px; }
+.context-workbench > p { max-width: 850px; color: var(--muted); line-height: 1.7; }
+.context-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+.context-columns > div { min-width: 0; }
+.context-workbench fieldset { border: 0; padding: 0; margin: 20px 0; min-width: 0; }
+.context-workbench legend { font-weight: 650; margin-bottom: 14px; }
+.context-workbench details { margin: 18px 0; }
+.context-workbench summary { cursor: pointer; font-weight: 600; }
+.context-workbench li { margin: 12px 0; overflow-wrap: anywhere; line-height: 1.6; }
+.context-source { display: flex; gap: 10px; align-items: flex-start; padding: 12px 0; line-height: 1.5; cursor: pointer; }
+.context-source input { flex-shrink: 0; width: 18px; height: 18px; margin-top: 3px; }
+.context-source span { min-width: 0; }
+.context-source small { display: block; margin-top: 5px; }
+.context-sources { max-height: 320px; overflow: auto; }
+.context-status { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0; }
+@media (max-width: 800px) { .context-columns { grid-template-columns: minmax(0, 1fr); } .context-workbench { padding: 18px; } }
+.context-workbench h3 { margin: 20px 0 12px; }
+.context-workbench dl { margin: 18px 0; }
+.context-workbench dt { font-size: 12px; color: var(--muted); margin-top: 12px; }
+.context-workbench dd { margin: 5px 0 0; }
+.context-workbench .context-source input { accent-color: #355d45; }

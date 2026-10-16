@@ -70,6 +70,7 @@ def init():
         CREATE TABLE IF NOT EXISTS snapshots(id TEXT PRIMARY KEY,project_id TEXT REFERENCES projects(id),run_id TEXT REFERENCES runs(id),text TEXT,created_at TEXT);
         CREATE TABLE IF NOT EXISTS channels(project_id TEXT PRIMARY KEY REFERENCES projects(id),enabled INTEGER,schedule TEXT,updated_at TEXT);
         CREATE TABLE IF NOT EXISTS ba_invocations(run_id TEXT PRIMARY KEY REFERENCES runs(id),context_json TEXT,proposal_json TEXT,input_hash TEXT,agent_commit TEXT,state TEXT,result_json TEXT);
+        CREATE TABLE IF NOT EXISTS context_preparations(id TEXT PRIMARY KEY,project_id TEXT REFERENCES projects(id),context_json TEXT,input_json TEXT,context_hash TEXT,agent_commit TEXT,result_json TEXT,created_at TEXT);
         CREATE TABLE IF NOT EXISTS ba_packs(artifact_id TEXT PRIMARY KEY REFERENCES artifacts(id),files_json TEXT,run_hash TEXT);
         ''')
     with connect() as c:

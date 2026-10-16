@@ -47,6 +47,7 @@ import type {
 import "./styles.css";
 import { api } from "./api";
 import { BaWorkflow, BaRunDetails, BaArtifactBody } from "./BaPanel";
+import { ContextWorkbench } from "./ContextWorkbench";
 
 const nav: { id: string; name: string; icon: LucideIcon; subtitle: string }[] =
   [
@@ -710,6 +711,7 @@ function App() {
                 </div>
                 <Badge tone="green">2 mô phỏng · 1 BA harness fixture</Badge>
               </div>
+              {project && <ContextWorkbench key={project.id} project={project} refresh={refresh} />}
               <BaWorkflow
                 busy={busy}
                 ready={agents[0]?.harness_status === "ready"}

@@ -1,5 +1,9 @@
 # BA fixture integration — v0.2 platform slice
 
+## Project context preparation (new)
+
+A separate workbench now snapshots selected project source versions and checks them through the pinned canonical BA preflight. It does not dispatch them as agent invocations or change the fixed fixture workflow. See [context contract and limits](CONTEXT-WORKBENCH.md). Technical pass remains separate from authority, business review and formal approval.
+
 ## Luồng chạy được
 
 Chọn project → Agent & Workflow → BA Harness Fixture → supplied proposal (mặc định fixture, có thể chỉnh JSON) → worker → BA CLI → kiểm tra pack → artifact → review.

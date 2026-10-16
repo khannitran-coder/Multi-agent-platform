@@ -27,6 +27,17 @@ Hành trình thử trong khoảng 3 phút:
 7. Xem **Run & Handoff** và **Kênh thông báo**. Snapshot dùng cùng project/run; nút mở quay lại đúng workspace. Telegram chỉ là preview/inbox cục bộ.
 8. Reload trang để kiểm tra dữ liệu còn nguyên. Tạo project thứ hai để thử tách context. Quản lý notes từ Workspace để tạo phiên bản input mới cho run tiếp theo.
 
+## Chuẩn bị context project
+
+Vào **Agent & Workflow → Chuẩn bị context BA**:
+
+1. Chọn phiên bản notes; mở **Thêm notes hoặc SOW giả lập** để lưu tài liệu có tên riêng. Mỗi lần lưu có ID/hash/version mới; không sửa nguồn cũ.
+2. Chọn Nội bộ hoặc Khách hàng/SOW. Khai báo PM, người duyệt, SOW và tham chiếu quy trình nếu cần.
+3. Bấm **Kiểm tra và lưu context** để thấy các trường thiếu từ canonical schema/preflight BA thật. Chỉ xác nhận synthetic-only khi các nguồn đúng là giả lập.
+4. Bổ sung thông tin rồi kiểm tra lại. Chọn bản cũ trong lịch sử hoặc dùng cấu hình cũ để tạo snapshot mới; kết quả cũ giữ nguyên.
+
+Đây là **bàn chuẩn bị**, chưa nối context project vào workflow sinh artifact. Schema/preflight đạt không xác minh quyền, ý nghĩa SOW hoặc phê duyệt. Tên người khai báo chưa được xác thực; execution luôn blocked, business pending, approval not_approved. Không có model, không tự đưa proposal công nợ vào context project. Luồng end-to-end mô phỏng và harness fixture bên dưới vẫn chạy như trước.
+
 ## Thử BA harness thật bằng fixture
 
 Trong **Agent & Workflow**, chọn **Chạy BA harness fixture**. Workflow dùng context/SOW/notes công nợ và proposal có sẵn từ BA `0.2.0` @ `9f786144…`. Nó không dùng notes tùy ý của project để suy ra trusted context hoặc quyền phê duyệt.
@@ -49,6 +60,7 @@ Trong **Agent & Workflow**, chọn **Chạy BA harness fixture**. Workflow dùng
 | Run limits, timeout/retry, stale review guard | Có thực thi và kiểm thử; chỉ có các workflow cố định |
 | Artifact versions, JSON export, review, audit, snapshot | Lưu thật; content bất biến, review metadata được cập nhật |
 | Requirements Discovery / BA Draft | Mô phỏng theo notes; chưa có model phân tích |
+| Context workbench | Nguồn/snapshot/hash/audit lưu thật; canonical preflight BA thật, chưa dispatch context project |
 | BA Harness Fixture | BA CLI thật với fixture/supplied proposal; canonical/domain/manifest checks thật, không gọi model |
 | QA handoff, Snapshot Writer | Vẫn là các bước mô phỏng/tóm tắt nội bộ |
 | Nội dung bản nháp | Dùng tối đa 3 dòng notes không trống đầu, answer và feedback; không hiểu ngữ nghĩa, không tự giải quyết feedback |
@@ -64,7 +76,7 @@ SQLite mặc định `.local/platform.db` (ignored). Chọn file khác bằng `P
 ## Kiểm thử
 
 ```bash
-.venv/bin/python -m pytest tests/test_api.py tests/test_ba_integration.py -q
+.venv/bin/python -m pytest tests/test_api.py tests/test_ba_integration.py tests/test_context_workbench.py -q
 npm run build
 npm run test:e2e
 ```

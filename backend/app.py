@@ -8,8 +8,8 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from . import store as db
 from . import worker
-from . import ba_runtime, ba_adapter, ba_jobs
-from .contracts import ProjectInput, TextInput, RunInput, ReviewInput, ChannelInput, REGISTRY
+from . import ba_runtime, ba_adapter, ba_jobs, context_workbench
+from .contracts import ProjectInput, TextInput, RunInput, ReviewInput, ChannelInput, SourceInput, ContextInput, REGISTRY
 
 @asynccontextmanager
 async def lifespan(app):
@@ -128,14 +128,50 @@ def project(pid: str):
         return p
 
 @app.post('/api/projects/{pid}/sources', status_code=201)
-def source(pid: str, body: TextInput):
+def source(pid: str, body: SourceInput):
     with db.connect() as c:
         access(c, pid)
         version = c.execute('SELECT max(version) FROM sources WHERE project_id=?', (pid,)).fetchone()[0]+1
         sid = db.uid('src')
-        c.execute('INSERT INTO sources VALUES (?,?,?,?,?,?,?)', (sid, pid, 'Discovery notes', body.text, version, db.digest(body.text), db.now()))
+        c.execute('INSERT INTO sources VALUES (?,?,?,?,?,?,?)', (sid, pid, body.name, body.text, version, db.digest(body.text), db.now()))
         db.event(c, pid, None, 'source.versioned', f'Notes v{version} được lưu; các run cũ giữ nguyên nguồn.')
         return {'id':sid, 'version':version}
+
+@app.get('/api/projects/{pid}/context-preparations')
+def context_preparations(pid: str):
+    with db.connect() as c:
+        access(c, pid)
+        return [context_workbench.serialize(r) for r in c.execute(
+            'SELECT * FROM context_preparations WHERE project_id=? ORDER BY rowid DESC', (pid,))]
+
+@app.post('/api/projects/{pid}/context-preparations', status_code=201)
+def prepare_context(pid: str, body: ContextInput):
+    with db.connect() as c:
+        access(c, pid)
+        project = dict(c.execute('SELECT * FROM projects WHERE id=?', (pid,)).fetchone())
+        sources = []
+        for sid in body.source_ids:
+            row = c.execute('SELECT * FROM sources WHERE id=? AND project_id=?', (sid, pid)).fetchone()
+            if not row: raise HTTPException(404, 'Nguồn không tồn tại hoặc không thuộc project.')
+            sources.append(dict(row))
+        context = context_workbench.build(project, sources, body)
+    # Immutable source versions snapshotted above; release write lock for the subprocess.
+    try:
+        result = context_workbench.check(context)
+    except ba_runtime.RuntimeIntegrityError as exc:
+        raise HTTPException(503, str(exc)) from None
+    except ba_adapter.AdapterError:
+        raise HTTPException(503, 'Không hoàn tất preflight; không lưu kết quả đạt.') from None
+    serialized = ba_adapter.canonical(context)
+    cid = db.uid('ctx')
+    with db.connect() as c:
+        access(c, pid)
+        c.execute('INSERT INTO context_preparations VALUES (?,?,?,?,?,?,?,?)',
+            (cid, pid, serialized, body.model_dump_json(), db.digest(serialized), ba_runtime.REFERENCE['commit'],
+             json.dumps(result, ensure_ascii=False), db.now()))
+        db.event(c, pid, None, 'context.prepared',
+                 f'{cid}: technical={result["technical"]}; execution blocked; human approval not_approved.')
+        return context_workbench.serialize(c.execute('SELECT * FROM context_preparations WHERE id=?', (cid,)).fetchone())
 
 @app.post('/api/projects/{pid}/runs', status_code=201)
 def start_run(pid: str, body: RunInput):

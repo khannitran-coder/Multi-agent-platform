@@ -15,6 +15,31 @@ class ProjectInput(Strict):
 class TextInput(Strict):
     text: str = Field(min_length=3, max_length=5000)
 
+class SourceInput(TextInput):
+    name: str = Field(default='Discovery notes', min_length=1, max_length=120)
+
+class ContextInput(Strict):
+    source_ids: list[str] = Field(min_length=1, max_length=20)
+    mode: Literal['internal', 'client'] = 'internal'
+    method: str = Field(default='Agile', max_length=120)
+    audience: str = Field(default='PM, dev và QA', max_length=500)
+    pm_owner: str = Field(default='', max_length=120)
+    internal_approver: str = Field(default='', max_length=120)
+    client_approver: str = Field(default='', max_length=120)
+    contract_type: str = Field(default='', max_length=120)
+    sow_source_id: str = Field(default='', max_length=120)
+    change_process_ref: str = Field(default='', max_length=500)
+    acceptance_process_ref: str = Field(default='', max_length=500)
+    synthetic_only: bool = False
+
+    @model_validator(mode='after')
+    def unique_sources(self):
+        if len(self.source_ids) != len(set(self.source_ids)):
+            raise ValueError('Mỗi phiên bản nguồn chỉ được chọn một lần.')
+        if self.sow_source_id and self.sow_source_id not in self.source_ids:
+            raise ValueError('SOW phải thuộc danh sách nguồn đã chọn.')
+        return self
+
 class RunInput(Strict):
     workflow: Literal['requirements-discovery', 'ba-draft', 'ba-harness-fixture'] = 'requirements-discovery'
     proposal: dict | None = None

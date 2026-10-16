@@ -1,3 +1,21 @@
+# Kiểm chứng context workbench — 16/10/2026
+
+Lát cắt hiện tại bổ sung chuẩn bị context từ nguồn project; chưa dispatch context này vào BA. Kiểm tra canonical schema/preflight thật qua runtime pin; danh tính/thẩm quyền vẫn chưa xác thực.
+
+| Kiểm tra | Kết quả hiện tại |
+|---|---|
+| API + BA integration + context workbench | **25 passed**, 0 failed/skipped/xfail; một Starlette/AnyIO deprecation warning |
+| TypeScript/Vite build | PASS |
+| Chromium desktop/mobile | **7 passed**, gồm context thiếu → bổ sung → SOW → lịch sử/reload, mobile, và hai journey cũ |
+| Startup script + HTTP thực tế | PASS; health prototype/SQLite, source project → context snapshot kỹ thuật đạt, execution blocked |
+| Workspace checkout traversal | Chỉ platform; /workspace/.git là metadata placeholder của môi trường; BA dependency không có .git |
+
+Snapshot nguồn/hash bất biến, nguồn khác project bị chặn, role trong notes không được suy ra thành authority, lỗi runtime không lưu bản đạt. Schema đạt vẫn execution blocked, business pending và approval not_approved. Screenshot mới: `.local/evidence/11-context-workbench.png`, `12-context-mobile.png`. Browser results: `.local/evidence/browser-results.json`.
+
+Một lượt browser đầu phát hiện thiếu nhãn truy cập chính xác cho select; đã thêm aria-label và chạy lại toàn bộ suite đạt. Kiểm thử backend mới được chỉnh theo thứ tự kiểm tra thật của upstream: schema dừng trước domain khi data_policy_ref thiếu. Các assertion vẫn kiểm tra không có quyền dữ liệu ngầm định.
+
+Các kết quả bên dưới thuộc lát cắt trước, giữ lại để truy xuất lịch sử; số lượng hiện tại ở trên.
+
 # Kiểm chứng BA harness fixture integration — 16/10/2026
 
 Bản hiện tại đã nối web với BA CLI thật ở chế độ supplied-proposal trên fixture công nợ. Chỉ kiểm chứng kỹ thuật; chưa phải business UAT hoặc formal approval.
