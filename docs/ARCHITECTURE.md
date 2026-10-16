@@ -15,9 +15,9 @@ flowchart LR
     AUTH --> O[Orchestrator + registry + policy]
     O --> Q[(Durable job journal)]
     Q --> WK[Background worker]
-    WK --> BA[BA subprocess adapter - tương lai]
+    WK --> BA[BA subprocess adapter - fixture thật]
     WK --> QA[QA adapter - tương lai]
-    BA --> BR[Repo BA pinned commit - không copy core]
+    BA --> BR[BA source dependency pin commit - không copy core]
     QA --> R[Artifact + audit + snapshot]
     BA --> R
     S --> DB[(Database)]
@@ -26,9 +26,9 @@ flowchart LR
     HG --> OUT[Opt-in channel outbox - tương lai]
 ```
 
-Hiện tại Web → FastAPI → SQLite và background worker đã chạy thật. `backend/contracts.py` chứa registry cố định và input/output Pydantic. `backend/worker.py` là state machine cùng simulator. `backend/store.py` chứa persistence; `backend/app.py` là HTTP/channel preference boundary. Worker là asyncio task trong lifespan, không phải daemon độc lập. Chưa có auth provider, connector hay channel outbox. QA/snapshot là fixture steps; BA không được gọi từ web.
+Hiện tại Web → FastAPI → SQLite, background worker và BA supplied-proposal fixture adapter đã chạy thật. `backend/contracts.py` chứa registry cố định và input/output Pydantic. `backend/worker.py` là state machine cùng simulator. `backend/store.py` chứa persistence; `backend/app.py` là HTTP/channel preference boundary. Worker là asyncio task trong lifespan, gọi tick trong thread và thực thi BA ngoài SQLite transaction. Chưa có auth provider, connector hay channel outbox. QA/snapshot vẫn là fixture steps; workflow `ba-harness-fixture` gọi BA CLI thật. Xem `BA-INTEGRATION.md` cho module/runtime boundaries.
 
-Giữ một deployment modular monolith + một worker process khi triển khai slice sau; không phải microservices. Subprocess adapter lấy core từ repo/version riêng. Trước live model phải enforce isolation filesystem/network/process; cờ `--isolated-runtime` của BA chỉ là lời xác nhận của operator.
+Giữ một deployment modular monolith + một worker process khi triển khai slice sau; không phải microservices. Subprocess adapter lấy core từ Git archive pin commit trong dependency cache, không thêm checkout Git vào workspace. Trước live model phải enforce isolation filesystem/network/process; cờ `--isolated-runtime` của BA chỉ là lời xác nhận của operator.
 
 ## Mô hình dữ liệu hiện tại
 
@@ -58,12 +58,14 @@ erDiagram
 | event | project/run, kind, detail, actor, timestamp; append-only qua API |
 | snapshot | project/run, text, timestamp; internal read model |
 | channel | project, enabled preference, schedule, updated_at; không lưu credential |
+| ba_invocations | immutable fixture context/proposal snapshot, input hash, agent commit, BA state/result |
+| ba_packs | nguyên văn bundle/review-pack/audit/manifest đã xác minh, liên kết artifact/run_hash |
 
 DB có foreign keys và transactional writes. Access vào project/run/artifact/snapshot đi qua membership gate chung. Audit ghi text do người dùng nhập được giữ như dữ liệu và React escape khi hiển thị. Hash không phải chữ ký và audit SQLite không chống sửa bởi người có quyền ghi file.
 
 Mở rộng sau: users + verified memberships, workflow_version, agent_version/commit, run_step/attempt ledger, explicit question và answer source versions, artifact URI/object store, approval(signature authority/version/hash), channel_identity, delivery outbox/deduplication, retention metadata. Hiện chưa lưu nguyên workflow definition theo version nên không thay registry giữa các run đang chạy.
 
-## Luồng chính đang chạy
+## Luồng Requirements Discovery mô phỏng đang chạy
 
 ```mermaid
 sequenceDiagram
@@ -101,13 +103,15 @@ sequenceDiagram
     API-->>UI: snapshot local + link đúng run
 ```
 
+Luồng BA harness fixture thật được mô tả riêng tại [BA-INTEGRATION.md](BA-INTEGRATION.md).
+
 ## State machine và policy
 
 `queued/intake → running/clarify → awaiting_input → queued/draft → running/quality → awaiting_review → reviewed`. `needs_changes` quay về `queued/draft` với version tăng. Timeout hoặc retry exhaustion thành `failed`; không tự xuất accepted artifact khi tạo draft lỗi.
 
 - Một run xử lý/chờ input tại một thời điểm cho mỗi project; duplicate answer bị 409.
 - Tối đa 3 artifact versions, 6 lượt, một retry mỗi step. Handoff chỉ là các bước cố định cùng project; agent không tự gọi agent tùy ý.
-- Deadline mỗi scheduled step 20s, persisted `due`. Restart trước deadline tiếp tục; outage quá deadline kết thúc failed. Chưa có UI resume/cancel run failed; tạo run mới sau khi xem event.
+- Với simulator, deadline mỗi scheduled step 20s, persisted `due`. Với BA fixture, CLI timeout 15s, verify timeout 10s, worker lease 35s và một retry runtime; không retry domain rejection. Restart trước deadline tiếp tục; outage quá deadline kết thúc failed. Chưa có UI resume/cancel run failed; tạo run mới sau khi xem event.
 - Mỗi transition trong transaction/worker savepoint; lỗi retry rollback partial output. SQLite `BEGIN IMMEDIATE` serialize worker và HTTP writes.
 - Review chỉ chấp nhận version mới nhất đã xong quality step; content/hash cũ không đổi. Business metadata có thể thay đổi theo review events.
 - Human chờ làm rõ/review không bị timeout 20s. Model cost luôn $0 vì không có model provider. Đây chưa phải bộ đo/chặn budget token cho live model.

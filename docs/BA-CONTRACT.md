@@ -1,23 +1,22 @@
-# BA worker adapter contract — đề xuất, chưa nối web
+# BA worker adapter contract — supplied-proposal fixture đã nối web
 
 ## Baseline thực tế
 
 Remote đã đọc ở commit `9f786144e4a84361a373abacf45107c26c2c0262`, agent `0.2.0`, canonical schema `0.2`. Không tự coi đây là v0.2.1. [Reference manifest](../contracts/ba-agent.reference.json) lưu commit/checksum; không copy core hoặc canonical schemas vào platform. [Khảo sát](REPOSITORY-SURVEY.md) ghi hai thời điểm remote thay đổi.
 
-Web hiện gọi simulator tạo `platform-draft/1`, không gọi CLI dưới đây. Contract worker invocation trong `contracts/agent-invocation.schema.json` là đề xuất được kiểm tra cấu trúc, chưa là runtime protocol của background simulator. Phân biệt rõ envelope platform, canonical BA context/proposal và provider projection.
+Web hiện có ba workflow. Hai workflow cũ tạo `platform-draft/1` mô phỏng; `ba-harness-fixture` gọi CLI thật trên fixture công nợ, nhập bundle gốc cùng normalized view `ba-view/1`. `contracts/agent-invocation.schema.json` vẫn là design envelope đề xuất; HTTP input thật là `RunInput` và invocation được lưu trong bảng `ba_invocations`. Không tuyên bố envelope đề xuất đã được enforce trong runtime.
 
 ## Điểm tích hợp
 
-Adapter tương lai chạy subprocess với argv allowlist trong checkout BA được pin/read-only và interpreter venv riêng. Context/proposal/output đặt trong thư mục run do server quản lý, không trong repo BA. Không shell interpolation theo input. Không lấy path, environment hoặc command từ model/notes. Worker không có credential Telegram hay quyền ghi vào hệ thống nghiệp vụ.
+Adapter hiện chạy subprocess với argv cố định trong source dependency pin/read-only và interpreter venv riêng. Source nằm trong cache ignored, không phải checkout Git khác. Context/proposal/output đặt trong thư mục run do server quản lý, không trong repo BA. Không shell interpolation theo input. Không lấy path, environment hoặc command từ model/notes. Worker không có credential Telegram hay quyền ghi vào hệ thống nghiệp vụ.
 
-Chế độ slice tiếp theo:
+CLI đang được gọi:
 
 ```text
-<ba-python> <pinned-ba-root>/agent.py --context <trusted-context.json> --prepare --output <run-dir>/prepared
 <ba-python> <pinned-ba-root>/agent.py --context <trusted-context.json> --proposal <supplied-proposal.json> --output <run-dir>/packs
 ```
 
-Chưa bật `--live`. BA live code có retry tối đa 2 và timeout 180s/lần nhưng chưa có dollar/token cap hoặc enforced isolation. Invocation contract đề xuất cho supplied-proposal/prepare giới hạn 30s; deadline 20s của simulator hiện tại là policy riêng. Không áp deadline simulator vào BA live và gọi đó là đã enforce live budget.
+Chưa bật `--live`. BA live code có retry tối đa 2 và timeout 180s/lần nhưng chưa có dollar/token cap hoặc enforced isolation. Adapter hiện giới hạn CLI 15s, independent verifier 10s và worker lease 35s; tối đa một retry runtime. CLI exit 2/gate rejection không bị retry như process lỗi. Deadline 20s của simulator là policy riêng. Không áp deadline simulator vào BA live và gọi đó là đã enforce live budget.
 
 ## Input và trusted context
 
@@ -38,11 +37,11 @@ Platform review hiện ghi nhận toàn pack theo artifact_id/version. BA `revie
 
 ## Output / trạng thái / exit code
 
-| CLI result state | Exit | Platform mapping đề xuất | Xử lý |
+| CLI result state | Exit | Platform mapping | Xử lý |
 |---|---:|---|---|
-| AwaitingInput | 2 | waiting_input | Lưu questions từ preflight; không tạo pack thành công |
-| AwaitingProposal | 2 | waiting_proposal | Chuẩn bị prompt/schema, chờ proposal do operator cung cấp |
-| Escalated | 2 | needs_operator | Lưu lỗi/gate findings; không import accepted pack |
+| AwaitingInput | 2 | awaiting_input | Lưu questions từ preflight; không tạo pack thành công |
+| AwaitingProposal | 2 | awaiting_proposal | Chuẩn bị prompt/schema, chờ proposal do operator cung cấp |
+| Escalated | 2 | escalated | Lưu lỗi/gate findings; không import accepted pack |
 | AwaitingPMReview | 0 | awaiting_review | Import pack sau integrity/schema checks, không auto-approve |
 | Missing/malformed JSON / nonzero khác | khác | failed | Phân loại worker/runtime lỗi, bounded retry theo policy |
 
@@ -52,17 +51,19 @@ Pack gồm `bundle.json`, `review-pack.md`, `audit.json`, `manifest.json`, dư�
 
 ## Import và handoff được phép
 
-Adapter phải xác minh trước import (chưa triển khai ở web):
+Adapter hiện xác minh trước import:
 
-1. Checkout SHA và schema/dependency fingerprints đúng registry; platform-generated invocation đúng schema.
+1. Đúng commit và full Git tree file checksums trong `ba-runtime.files.json`; invocation input hash/agent commit khớp snapshot server. Không nhận tùy ý context/command/path từ HTTP.
 2. Result output path resolved ở trong run root do worker tạo; chặn symlink/path traversal; giới hạn stdout/file size. CLI hiện giới hạn load input/output JSON 200 KB.
 3. Manifest file set, full run_hash, từng artifact checksum đúng; bundle canonical/domain validation của harness không bị bỏ qua. Lưu raw pack bất biến cạnh normalized read model.
 4. Mọi source/artifact/parent step cùng project và được cấp quyền tại thời điểm chạy. Idempotency theo project/run/step/input hash/agent commit; replay chỉ reuse pack nguyên vẹn.
-5. Handoff BA chỉ là proposal `{target, reason, requirement_ids}`. Orchestrator resolve target qua allowlist registry/workflow, xét quyền/schema/budget/deadline/hop count. Unknown target hoặc vòng lặp → operator, không chạy command do agent đưa ra.
-6. Chỉ trao dữ liệu structured cần thiết, kèm input/output hash và lineage; không chuyển credential hay toàn bộ conversation mặc định. Timeout/cancel kill process tree và không publish partial pack.
+5. Handoff BA `{target, reason, requirement_ids}` chỉ được hiển thị để review. Slice này không tự dispatch handoff sang agent khác. Policy registry/hop/budget cho dynamic handoff vẫn là thiết kế tương lai.
+6. Context fixture/proposal snapshot được lưu theo run; không đưa conversation hay notes project vào authority. CLI timeout kill process group và không nhập partial pack. User-facing cancel chưa triển khai; supplied-proposal không phải runtime sandbox đầy đủ.
 
 Technical check, business validation và approval vẫn là các gate riêng. Telegram không nhận raw internal BA review pack mặc định vì renderer của agent hiện internal-only, chưa có client-safe filter.
 
 ## Bằng chứng đang có
 
-Đã chạy unittest và CLI demo fixture độc lập, integrity manifest đã được xác minh; output nằm `.local/ba-smoke`. Web integration test cho adapter/manifest import, field-level trusted reviews và live provider đều **chưa chạy/chưa triển khai**. Xem VALIDATION.md.
+Đã nối web → durable worker → BA CLI supplied-proposal → independent canonical/domain/manifest/audit validation → SQLite pack/review. Kiểm thử integration chạy CLI thật, gồm negative proposal, rehashed pack tampering, membership và timeout/retry. UI browser kiểm chứng AC/RTM/raw download/review/gate rejection. Xem `VALIDATION.md` và `BA-INTEGRATION.md`.
+
+Trusted context hiện chỉ là fixture pinned; arbitrary project-context assembly, live model, field-level trusted reviews và automatic feedback-to-proposal chưa triển khai. Review whole pack không thay `context.reviews[]`.

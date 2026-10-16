@@ -1,16 +1,22 @@
-"""Durable simulated orchestration. No model, agent subprocess, or external channel calls."""
+"""Durable prototype orchestration: simulation plus pinned BA supplied-proposal jobs."""
 import asyncio
 import json
 import time
 from . import store as db
 from .contracts import Draft
+from . import ba_jobs, ba_adapter
 
 def tick():
+    jobs=[]
     with db.connect() as c:
         for raw in c.execute("SELECT * FROM runs WHERE state IN ('queued','running') AND due <= ?", (time.time(),)).fetchall():
             r = dict(raw)
             c.execute('SAVEPOINT worker_step')
             try:
+                if r['workflow']==ba_adapter.WORKFLOW:
+                    if ba_jobs.claim(c,r):jobs.append(r['id'])
+                    c.execute('RELEASE worker_step')
+                    continue
                 # A crashed/restarted application resumes the persisted step; transitions are atomic.
                 if time.time() - r['due'] > 20:
                     c.execute("UPDATE runs SET state='failed',updated_at=? WHERE id=?", (db.now(), r['id']))
@@ -28,6 +34,8 @@ def tick():
                 else:
                     c.execute("UPDATE runs SET state='failed',updated_at=? WHERE id=?", (db.now(), r['id']))
                     db.event(c, r['project_id'], r['id'], 'run.failed', type(exc).__name__, 'orchestrator')
+    for rid in jobs:
+        ba_jobs.execute_job(rid)
 
 def advance(c, r):
     pid, rid = r['project_id'], r['id']
@@ -78,5 +86,5 @@ def make_draft(project, source, answer, feedback):
 
 async def loop():
     while True:
-        tick()
+        await asyncio.to_thread(tick)
         await asyncio.sleep(0.3)

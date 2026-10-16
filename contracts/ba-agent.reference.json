@@ -1,5 +1,5 @@
 {
-  "contract_status": "proposed-not-connected",
+  "contract_status": "connected-supplied-proposal-fixture",
   "agent_id": "ba-requirements",
   "repository": "khannitran-coder/Ba-Pm-agent",
   "commit": "9f786144e4a84361a373abacf45107c26c2c0262",
@@ -19,5 +19,8 @@
   ],
   "entrypoint": "agent.py",
   "safe_modes_for_next_slice": ["prepare", "supplied-proposal"],
-  "live_model_enabled": false
+  "live_model_enabled": false,
+  "runtime_installation": "git-archive-dependency-cache",
+  "web_workflow": "ba-harness-fixture",
+  "trusted_context": "pinned synthetic fixture only"
 }

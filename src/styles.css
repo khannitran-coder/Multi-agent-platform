@@ -3185,3 +3185,164 @@ table + .muted {
     transition: none !important;
   }
 }
+.ba-workflow {
+  padding: 25px;
+  margin-bottom: 24px;
+  background: #f2f7ed;
+  border-color: #d7e4ce;
+}
+.ba-workflow > p {
+  font-size: 12px;
+  line-height: 1.9;
+  color: #617456;
+  max-width: 850px;
+}
+.ba-workflow details {
+  margin: 18px 0;
+  font-size: 11px;
+  color: #687c5c;
+}
+.ba-workflow summary,
+.ba-run-details summary,
+.ba-document summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.8;
+}
+.ba-workflow details > p {
+  margin: 10px 0;
+  line-height: 1.9;
+}
+.json-editor {
+  font-family: Consolas, monospace;
+  font-size: 10px !important;
+  min-height: 220px !important;
+}
+.ba-run-details {
+  padding: 21px;
+  margin-bottom: 18px;
+  overflow-wrap: anywhere;
+}
+.ba-run-details h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+.ba-run-details p {
+  font-size: 11px;
+  line-height: 1.9;
+  margin: 9px 0;
+  color: #74826e;
+}
+.ba-run-details dl {
+  font-size: 10px;
+  line-height: 1.8;
+}
+.ba-run-details dt {
+  color: #9aa98a;
+}
+.ba-run-details dd {
+  margin: 5px 0 13px;
+  color: #738865;
+}
+.ba-run-details details {
+  margin-top: 15px;
+}
+.json-output {
+  font-size: 10px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f5f8f1;
+  border: 1px solid #e4ebdb;
+  padding: 14px;
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 6px;
+  color: #617657;
+}
+.ba-source {
+  border-top: 1px solid #e5ecdd;
+  padding-top: 14px;
+  margin-top: 14px;
+}
+.ba-source p {
+  white-space: pre-wrap;
+}
+.ba-document blockquote {
+  margin: 12px 0;
+  padding: 10px 15px;
+  border-left: 2px solid #c4d4b1;
+  background: #fafcf6;
+}
+.ba-document blockquote p {
+  font-size: 11px;
+}
+.ba-ac {
+  border-top: 1px solid #e6eddc;
+  margin-top: 16px;
+  padding-top: 10px;
+}
+.ba-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 20px 0;
+}
+.ba-downloads a {
+  text-decoration: none;
+}
+.ba-workflow .workflow-chain {
+  flex-wrap: wrap;
+}
+.ba-findings {
+  max-height: 370px;
+  overflow: auto;
+  border: 1px solid #e5ecdc;
+  border-radius: 7px;
+  margin: 15px 0;
+}
+.ba-findings article {
+  padding: 15px;
+  border-bottom: 1px solid #e5ecdc;
+}
+.ba-findings article:last-child {
+  border-bottom: 0;
+}
+.ba-findings article > div {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.ba-findings p {
+  font-size: 11px;
+  color: #6a7e5c;
+  line-height: 1.9;
+  margin: 8px 0;
+}
+.ba-findings small {
+  font-size: 9px;
+  color: #8b9d7b;
+}
+@media (max-width: 720px) {
+  .ba-workflow {
+    padding: 20px;
+  }
+  .ba-workflow .section-row,
+  .ba-workflow .workflow-footer {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .ba-workflow .button {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .ba-workflow .workflow-chain {
+    gap: 7px;
+  }
+  .ba-workflow .workflow-chain span {
+    font-size: 9px;
+  }
+}

@@ -1,8 +1,8 @@
-"""Platform-specific simulation contract; deliberately NOT a canonical BA bundle."""
+"""Prototype input contracts; simulator Draft is distinct from the canonical BA bundle."""
 import json
 from pathlib import Path
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class Strict(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
@@ -16,7 +16,17 @@ class TextInput(Strict):
     text: str = Field(min_length=3, max_length=5000)
 
 class RunInput(Strict):
-    workflow: Literal['requirements-discovery', 'ba-draft'] = 'requirements-discovery'
+    workflow: Literal['requirements-discovery', 'ba-draft', 'ba-harness-fixture'] = 'requirements-discovery'
+    proposal: dict | None = None
+
+    @model_validator(mode='after')
+    def bounded_proposal(self):
+        if self.proposal is not None:
+            if self.workflow != 'ba-harness-fixture':
+                raise ValueError('Proposal JSON chỉ dùng cho workflow BA Harness Fixture.')
+            if len(json.dumps(self.proposal,ensure_ascii=False,allow_nan=False).encode()) > 200_000:
+                raise ValueError('Proposal vượt giới hạn 200 KB.')
+        return self
 
 class ReviewInput(Strict):
     decision: Literal['reviewed', 'needs_changes']

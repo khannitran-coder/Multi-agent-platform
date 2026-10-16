@@ -45,6 +45,8 @@ import type {
   Run,
 } from "./types";
 import "./styles.css";
+import { api } from "./api";
+import { BaWorkflow, BaRunDetails, BaArtifactBody } from "./BaPanel";
 
 const nav: { id: string; name: string; icon: LucideIcon; subtitle: string }[] =
   [
@@ -92,6 +94,9 @@ const labels: Record<string, string> = {
   awaiting_review: "Chờ review",
   reviewed: "Đã ghi nhận review",
   failed: "Dừng do lỗi",
+  escalated: "Cần operator xử lý",
+  awaiting_proposal: "Chờ proposal",
+  changes_requested: "Đã yêu cầu sửa",
 };
 const fmt = (date: string) =>
   new Intl.DateTimeFormat("vi-VN", {
@@ -101,25 +106,6 @@ const fmt = (date: string) =>
     month: "2-digit",
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(date));
-async function api<T>(
-  path: string,
-  method = "GET",
-  body?: unknown,
-): Promise<T> {
-  const response = await fetch("/api" + path, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const data = await response.json();
-  if (!response.ok)
-    throw new Error(
-      typeof data.detail === "string"
-        ? data.detail
-        : "Dữ liệu chưa hợp lệ. Kiểm tra nội dung và thử lại.",
-    );
-  return data;
-}
 function Badge({
   children,
   tone = "neutral",
@@ -135,7 +121,7 @@ function State({ run }: { run?: Run }) {
       tone={
         run.state === "awaiting_input"
           ? "amber"
-          : run.state === "failed"
+          : run.state === "failed" || run.state === "escalated"
             ? "red"
             : run.state === "running" || run.state === "queued"
               ? "blue"
@@ -202,6 +188,8 @@ function App() {
       (e) => page === "overview" || e.run_id === run?.id,
     ) || [];
   const working = run?.state === "queued" || run?.state === "running";
+  const harnessRun = run?.workflow === "ba-harness-fixture";
+  const harnessArtifact = !!artifact?.content.ba_bundle;
 
   function go(view: string, nextRun = rid, nextPid = pid) {
     const params = new URLSearchParams({ view });
@@ -289,12 +277,15 @@ function App() {
       setBusy(false);
     }
   }
-  async function start(workflow = "requirements-discovery") {
+  async function start(
+    workflow = "requirements-discovery",
+    proposal?: Record<string, unknown>,
+  ) {
     await act(async () => {
       const r = await api<{ id: string }>(
         "/projects/" + pid + "/runs",
         "POST",
-        { workflow },
+        { workflow, ...(proposal ? { proposal } : {}) },
       );
       await refresh();
       go("workspace", r.id);
@@ -322,7 +313,9 @@ function App() {
       setNotice(
         decision === "reviewed"
           ? "Đã lưu review cho đúng phiên bản. Phê duyệt chính thức vẫn chưa được ghi nhận."
-          : "Yêu cầu sửa đã lưu. Worker đang tạo phiên bản mới; bản cũ được giữ nguyên.",
+          : harnessArtifact
+            ? "Đã ghi nhận yêu cầu sửa BA fixture. Chỉnh proposal JSON và tạo run mới; pack cũ giữ nguyên."
+            : "Yêu cầu sửa đã lưu. Worker đang tạo phiên bản mới; bản cũ được giữ nguyên.",
       );
     });
   }
@@ -715,8 +708,13 @@ function App() {
                     Chuỗi công việc có checkpoint và người chịu trách nhiệm.
                   </p>
                 </div>
-                <Badge tone="green">2 workflow mô phỏng</Badge>
+                <Badge tone="green">2 mô phỏng · 1 BA harness fixture</Badge>
               </div>
+              <BaWorkflow
+                busy={busy}
+                ready={agents[0]?.harness_status === "ready"}
+                start={start}
+              />
               <div className="workflow-grid">
                 <section className="workflow-card featured">
                   <div className="workflow-icon">
@@ -812,7 +810,11 @@ function App() {
                           <Bot size={24} />
                         </div>
                         <Badge tone={a.available ? "green" : "neutral"}>
-                          {a.available ? "Mô phỏng" : "Đề xuất"}
+                          {a.id === "ba" && a.harness_status === "ready"
+                            ? "Harness fixture + mô phỏng"
+                            : a.available
+                              ? "Mô phỏng"
+                              : "Đề xuất"}
                         </Badge>
                       </div>
                       <h3>{a.name}</h3>
@@ -834,7 +836,7 @@ function App() {
                       </dl>
                       <div className="agent-bottom">
                         {a.id === "ba"
-                          ? `Remote ${a.commit?.slice(0, 8)} · 0.2.0 · chưa nối harness`
+                          ? `BA ${a.version} @ ${a.commit?.slice(0, 8)} · harness ${a.harness_status || "unavailable"}`
                           : a.available
                             ? "Fixture adapter · chưa có agent thật"
                             : "Chưa đăng ký worker adapter"}
@@ -880,7 +882,11 @@ function App() {
                       <Bot size={18} />
                       BA Requirements
                     </h2>
-                    <Badge>Mô phỏng · không LLM</Badge>
+                    <Badge>
+                      {harnessRun
+                        ? "BA CLI thật · fixture · không LLM"
+                        : "Mô phỏng · không LLM"}
+                    </Badge>
                   </div>
                   {run ? (
                     <>
@@ -994,36 +1000,40 @@ function App() {
                   )}
                 </section>
                 <aside className="context-column">
-                  <section className="panel context-panel">
-                    <div className="panel-heading">
-                      <h3>Bối cảnh đầu vào</h3>
-                      <FileText size={17} />
-                    </div>
-                    <Badge>
-                      Notes · v
-                      {project.sources.find((s) => s.id === run?.source_id)
-                        ?.version || project.sources[0]?.version}
-                    </Badge>
-                    <p className="source-preview">
-                      {
-                        (
-                          project.sources.find(
-                            (s) => s.id === run?.source_id,
-                          ) || project.sources[0]
-                        )?.text
-                      }
-                    </p>
-                    <button
-                      className="text-button"
-                      onClick={() => {
-                        setSourceText(project.sources[0]?.text || "");
-                        setSourceOpen(true);
-                      }}
-                    >
-                      Quản lý phiên bản notes
-                      <ArrowUpRight size={14} />
-                    </button>
-                  </section>
+                  {harnessRun && run ? (
+                    <BaRunDetails run={run} />
+                  ) : (
+                    <section className="panel context-panel">
+                      <div className="panel-heading">
+                        <h3>Bối cảnh đầu vào</h3>
+                        <FileText size={17} />
+                      </div>
+                      <Badge>
+                        Notes · v
+                        {project.sources.find((s) => s.id === run?.source_id)
+                          ?.version || project.sources[0]?.version}
+                      </Badge>
+                      <p className="source-preview">
+                        {
+                          (
+                            project.sources.find(
+                              (s) => s.id === run?.source_id,
+                            ) || project.sources[0]
+                          )?.text
+                        }
+                      </p>
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setSourceText(project.sources[0]?.text || "");
+                          setSourceOpen(true);
+                        }}
+                      >
+                        Quản lý phiên bản notes
+                        <ArrowUpRight size={14} />
+                      </button>
+                    </section>
+                  )}
                   <section className="panel context-panel">
                     <h3>Hành trình của run</h3>
                     <MiniSteps run={run} />
@@ -1032,8 +1042,13 @@ function App() {
                       <div>
                         <strong>Giới hạn có kiểm soát</strong>
                         <p>
-                          Tối đa 6 lượt · 3 phiên bản
-                          <br />1 retry/bước · timeout 20s
+                          {harnessRun
+                            ? "1 pack/run · 1 retry runtime"
+                            : "Tối đa 6 lượt · 3 phiên bản"}
+                          <br />
+                          {harnessRun
+                            ? "CLI 15s · verify 10s · lease 35s"
+                            : "1 retry/bước · timeout 20s"}
                           <br />
                           Chi phí model: $0
                         </p>
@@ -1043,9 +1058,9 @@ function App() {
                   <div className="info-note">
                     <Sparkles size={16} />
                     <p>
-                      BA đang dùng mẫu cố định để bạn thử UX. Câu trả lời và
-                      feedback được lưu thật; chưa có AI phân tích. Bản nháp
-                      dùng 3 dòng notes không trống đầu tiên.
+                      {harnessRun
+                        ? "Fixture công nợ chạy qua BA CLI và canonical/domain validation thật. Notes của project không được đưa vào trusted context. Feedback không tự tạo proposal hoặc phê duyệt."
+                        : "BA đang dùng mẫu cố định để bạn thử UX. Câu trả lời và feedback được lưu thật; chưa có AI phân tích. Bản nháp dùng 3 dòng notes không trống đầu tiên."}
                     </p>
                   </div>
                 </aside>
@@ -1094,7 +1109,11 @@ function App() {
                         <div className="run-metrics">
                           <div>
                             <small>Adapter</small>
-                            <strong>Fixture simulator</strong>
+                            <strong>
+                              {harnessRun
+                                ? "BA CLI · supplied proposal"
+                                : "Fixture simulator"}
+                            </strong>
                           </div>
                           <div>
                             <small>Lượt / giới hạn</small>
@@ -1127,6 +1146,7 @@ function App() {
                           <ArrowRight size={15} />
                         </button>
                       </section>
+                      {harnessRun && run && <BaRunDetails run={run} />}
                       <section className="panel audit-panel">
                         <div className="panel-heading">
                           <h2>Event & handoff trail</h2>
@@ -1237,162 +1257,167 @@ function App() {
                         </button>
                       ))}
                     </div>
-                    <div className="document-body">
-                      <div className="document-eyebrow">
-                        SIMULATED OUTPUT / PLATFORM-DRAFT/1
-                      </div>
-                      <h2>{artifact.content.title}</h2>
-                      <p className="document-intro">
-                        {artifact.content.summary}
-                      </p>
-                      {artifact.content.change_request && (
-                        <div className="feedback-callout">
-                          <RefreshCw size={17} />
-                          <div>
-                            <strong>
-                              Yêu cầu sửa đã được đưa vào bản v
-                              {artifact.version}
-                            </strong>
-                            <p>{artifact.content.change_request}</p>
-                            <small>
-                              Prototype ghi nhận yêu cầu; chưa dùng AI để diễn
-                              giải hoặc bảo đảm đã giải quyết.
-                            </small>
-                          </div>
+                    {harnessArtifact ? (
+                      <BaArtifactBody artifact={artifact} tab={tab} />
+                    ) : (
+                      <div className="document-body">
+                        <div className="document-eyebrow">
+                          SIMULATED OUTPUT / PLATFORM-DRAFT/1
                         </div>
-                      )}
-                      {tab === "requirements" && (
-                        <>
-                          <div className="clarification-note">
-                            <strong>Phạm vi PM đã làm rõ</strong>
-                            <p>{artifact.content.answer}</p>
-                          </div>
-                          {artifact.content.requirements.map((r) => (
-                            <article className="requirement" key={r.id}>
-                              <div>
-                                <span className="mono">{r.id}</span>
-                                <Badge>{r.priority}</Badge>
-                              </div>
-                              <h3>{r.title}</h3>
-                              <p>{r.description}</p>
+                        <h2>{artifact.content.title}</h2>
+                        <p className="document-intro">
+                          {artifact.content.summary}
+                        </p>
+                        {artifact.content.change_request && (
+                          <div className="feedback-callout">
+                            <RefreshCw size={17} />
+                            <div>
+                              <strong>
+                                Yêu cầu sửa đã được đưa vào bản v
+                                {artifact.version}
+                              </strong>
+                              <p>{artifact.content.change_request}</p>
                               <small>
-                                <Link2 size={13} />
-                                {r.evidence}
+                                Prototype ghi nhận yêu cầu; chưa dùng AI để diễn
+                                giải hoặc bảo đảm đã giải quyết.
                               </small>
-                            </article>
-                          ))}
-                        </>
-                      )}
-                      {tab === "stories" &&
-                        artifact.content.stories.map((s) => (
-                          <article className="story" key={s.id}>
-                            <span className="mono">
-                              {s.id} → {s.requirement_id}
-                            </span>
-                            <h3>{s.text}</h3>
-                            <dl>
-                              <dt>GIVEN</dt>
-                              <dd>{s.given}</dd>
-                              <dt>WHEN</dt>
-                              <dd>{s.when}</dd>
-                              <dt>THEN</dt>
-                              <dd>{s.then}</dd>
-                            </dl>
-                            <Badge tone="amber">
-                              Template · cần BA/QA bổ sung tiêu chí đo
-                            </Badge>
-                          </article>
-                        ))}
-                      {tab === "rtm" && (
-                        <div className="table-wrap">
-                          <table>
-                            <thead>
-                              <tr>
-                                <th>Requirement</th>
-                                <th>Story</th>
-                                <th>Test plan</th>
-                                <th>UAT</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {artifact.content.stories.map((s) => (
-                                <tr key={s.id}>
-                                  <td>{s.requirement_id}</td>
-                                  <td>{s.id}</td>
-                                  <td>TC-{s.id}</td>
-                                  <td>
-                                    <Badge>Chưa chạy</Badge>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                          <p className="muted">
-                            Liên kết sinh từ mẫu. Coverage ngữ nghĩa chưa được
-                            kiểm chứng.
-                          </p>
-                        </div>
-                      )}
-                      {tab === "uat" && (
-                        <>
-                          <div className="alert neutral">
-                            <Clock3 size={17} />
-                            Kế hoạch UAT nháp · không phải kết quả kiểm thử.
+                            </div>
                           </div>
-                          {artifact.content.stories.map((s) => (
-                            <article className="requirement" key={s.id}>
-                              <span className="mono">TC-{s.id}</span>
-                              <h3>{s.requirement_id} · kiểm chứng hành vi</h3>
-                              <p>Điều kiện: {s.given}</p>
-                              <p>Bước: {s.when}</p>
-                              <p>Kỳ vọng: {s.then}</p>
-                              <Badge>Actual: chưa có · Not Started</Badge>
+                        )}
+                        {tab === "requirements" && (
+                          <>
+                            <div className="clarification-note">
+                              <strong>Phạm vi PM đã làm rõ</strong>
+                              <p>{artifact.content.answer}</p>
+                            </div>
+                            {artifact.content.requirements.map((r) => (
+                              <article className="requirement" key={r.id}>
+                                <div>
+                                  <span className="mono">{r.id}</span>
+                                  <Badge>{r.priority}</Badge>
+                                </div>
+                                <h3>{r.title}</h3>
+                                <p>{r.description}</p>
+                                <small>
+                                  <Link2 size={13} />
+                                  {r.evidence}
+                                </small>
+                              </article>
+                            ))}
+                          </>
+                        )}
+                        {tab === "stories" &&
+                          artifact.content.stories.map((s) => (
+                            <article className="story" key={s.id}>
+                              <span className="mono">
+                                {s.id} → {s.requirement_id}
+                              </span>
+                              <h3>{s.text}</h3>
+                              <dl>
+                                <dt>GIVEN</dt>
+                                <dd>{s.given}</dd>
+                                <dt>WHEN</dt>
+                                <dd>{s.when}</dd>
+                                <dt>THEN</dt>
+                                <dd>{s.then}</dd>
+                              </dl>
+                              <Badge tone="amber">
+                                Template · cần BA/QA bổ sung tiêu chí đo
+                              </Badge>
                             </article>
                           ))}
-                        </>
-                      )}
-                      {tab === "sources" && (
-                        <div className="provenance">
-                          <h3>Nguồn gốc nội dung</h3>
-                          <dl>
-                            <dt>Source ID</dt>
-                            <dd>{artifact.content.source_id}</dd>
-                            <dt>Source SHA-256</dt>
-                            <dd className="mono hash">
-                              {artifact.content.source_hash}
-                            </dd>
-                            <dt>Artifact SHA-256</dt>
-                            <dd className="mono hash">{artifact.hash}</dd>
-                            <dt>Adapter</dt>
-                            <dd>
-                              Deterministic fixture · không gọi BA harness
-                            </dd>
-                            <dt>BA đã kiểm tra</dt>
-                            <dd>
-                              Remote 0.2.0 @ 9f786144 · chưa có bằng chứng 0.2.1
-                            </dd>
-                          </dl>
-                          <h3>Lịch sử phiên bản của run</h3>
-                          {artifacts.map((a) => (
-                            <button
-                              className="version-row"
-                              key={a.id}
-                              onClick={() => setArtifactId(a.id)}
-                            >
-                              <FileText size={15} />v{a.version}
-                              <span>{fmt(a.created_at)}</span>
-                              <Badge>
-                                {a.business === "reviewed"
-                                  ? "Đã review"
-                                  : a.business === "needs_changes"
-                                    ? "Yêu cầu sửa"
-                                    : "Chờ review"}
-                              </Badge>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                        {tab === "rtm" && (
+                          <div className="table-wrap">
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>Requirement</th>
+                                  <th>Story</th>
+                                  <th>Test plan</th>
+                                  <th>UAT</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {artifact.content.stories.map((s) => (
+                                  <tr key={s.id}>
+                                    <td>{s.requirement_id}</td>
+                                    <td>{s.id}</td>
+                                    <td>TC-{s.id}</td>
+                                    <td>
+                                      <Badge>Chưa chạy</Badge>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            <p className="muted">
+                              Liên kết sinh từ mẫu. Coverage ngữ nghĩa chưa được
+                              kiểm chứng.
+                            </p>
+                          </div>
+                        )}
+                        {tab === "uat" && (
+                          <>
+                            <div className="alert neutral">
+                              <Clock3 size={17} />
+                              Kế hoạch UAT nháp · không phải kết quả kiểm thử.
+                            </div>
+                            {artifact.content.stories.map((s) => (
+                              <article className="requirement" key={s.id}>
+                                <span className="mono">TC-{s.id}</span>
+                                <h3>{s.requirement_id} · kiểm chứng hành vi</h3>
+                                <p>Điều kiện: {s.given}</p>
+                                <p>Bước: {s.when}</p>
+                                <p>Kỳ vọng: {s.then}</p>
+                                <Badge>Actual: chưa có · Not Started</Badge>
+                              </article>
+                            ))}
+                          </>
+                        )}
+                        {tab === "sources" && (
+                          <div className="provenance">
+                            <h3>Nguồn gốc nội dung</h3>
+                            <dl>
+                              <dt>Source ID</dt>
+                              <dd>{artifact.content.source_id}</dd>
+                              <dt>Source SHA-256</dt>
+                              <dd className="mono hash">
+                                {artifact.content.source_hash}
+                              </dd>
+                              <dt>Artifact SHA-256</dt>
+                              <dd className="mono hash">{artifact.hash}</dd>
+                              <dt>Adapter</dt>
+                              <dd>
+                                Deterministic fixture · không gọi BA harness
+                              </dd>
+                              <dt>BA đã kiểm tra</dt>
+                              <dd>
+                                Remote 0.2.0 @ 9f786144 · chưa có bằng chứng
+                                0.2.1
+                              </dd>
+                            </dl>
+                            <h3>Lịch sử phiên bản của run</h3>
+                            {artifacts.map((a) => (
+                              <button
+                                className="version-row"
+                                key={a.id}
+                                onClick={() => setArtifactId(a.id)}
+                              >
+                                <FileText size={15} />v{a.version}
+                                <span>{fmt(a.created_at)}</span>
+                                <Badge>
+                                  {a.business === "reviewed"
+                                    ? "Đã review"
+                                    : a.business === "needs_changes"
+                                      ? "Yêu cầu sửa"
+                                      : "Chờ review"}
+                                </Badge>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </section>
                   <aside className="review-column">
                     <section className="panel review-panel">
@@ -1404,8 +1429,16 @@ function App() {
                         <CheckCircle2 size={19} className="green-text" />
                         <div>
                           <strong>Kiểm tra kỹ thuật</strong>
-                          <p>Schema prototype đạt</p>
-                          <small>Chưa chạy BA domain validation</small>
+                          <p>
+                            {harnessArtifact
+                              ? "Schema + domain + manifest đạt"
+                              : "Schema prototype đạt"}
+                          </p>
+                          <small>
+                            {harnessArtifact
+                              ? "Kiểm tra kỹ thuật đạt; ngữ nghĩa vẫn cần BA/PM review"
+                              : "Chưa chạy BA domain validation"}
+                          </small>
                         </div>
                       </div>
                       <div className="gate-status">
@@ -1447,7 +1480,10 @@ function App() {
                           busy ||
                           working ||
                           comment.trim().length < 3 ||
-                          artifact.version !== run?.version
+                          artifact.version !== run?.version ||
+                          !["awaiting_review", "reviewed"].includes(
+                            run?.state || "",
+                          )
                         }
                         onClick={() => review("reviewed")}
                       >
@@ -1460,7 +1496,10 @@ function App() {
                           busy ||
                           working ||
                           comment.trim().length < 3 ||
-                          artifact.version !== run?.version
+                          artifact.version !== run?.version ||
+                          !["awaiting_review", "reviewed"].includes(
+                            run?.state || "",
+                          )
                         }
                         onClick={() => review("needs_changes")}
                       >
@@ -1468,8 +1507,9 @@ function App() {
                         Yêu cầu sửa bản nháp
                       </button>
                       <p className="fine-print">
-                        Mỗi quyết định gắn với đúng artifact/version và người
-                        review demo. Tối đa 3 phiên bản/run.
+                        {harnessArtifact
+                          ? "Review platform không trở thành confirmation của BA. Yêu cầu sửa chỉ được ghi nhận; chỉnh proposal và tạo run mới để chạy lại."
+                          : "Mỗi quyết định gắn với đúng artifact/version và người review demo. Tối đa 3 phiên bản/run."}
                       </p>
                       {working && (
                         <div className="typing">
@@ -1790,30 +1830,43 @@ function MiniSteps({
   horizontal?: boolean;
 }) {
   const done = run?.state === "awaiting_review" || run?.state === "reviewed";
+  const harness = run?.workflow === "ba-harness-fixture";
   const steps = [
     {
-      label: "Context & notes",
+      label: harness ? "Fixture context & proposal" : "Context & notes",
       sub: "Input được khóa theo phiên bản",
       done: !!run,
       active: false,
     },
     {
-      label: "BA · Làm rõ & soạn nháp",
+      label: harness ? "BA CLI · supplied proposal" : "BA · Làm rõ & soạn nháp",
       sub:
         run?.state === "awaiting_input"
           ? "Đang chờ câu trả lời"
-          : "Fixture adapter",
+          : harness
+            ? "Harness thật · không model"
+            : "Fixture adapter",
       done: done || run?.step === "quality",
       active: !!run && !done && run.step !== "quality",
     },
     {
-      label: run?.workflow === "ba-draft" ? "Kiểm tra schema nội bộ" : "QA fixture · Kiểm tra schema",
-      sub: "Chưa xác minh ngữ nghĩa",
+      label: harness
+        ? "Canonical / domain / manifest"
+        : run?.workflow === "ba-draft"
+          ? "Kiểm tra schema nội bộ"
+          : "QA fixture · Kiểm tra schema",
+      sub: harness
+        ? "Pack chỉ nhập khi mọi gate đạt"
+        : "Chưa xác minh ngữ nghĩa",
       done,
       active: run?.step === "quality" && !done,
     },
     {
-      label: run?.workflow === "ba-draft" ? "PM review" : "PM review & snapshot",
+      label: harness
+        ? "PM review · fixture pack"
+        : run?.workflow === "ba-draft"
+          ? "PM review"
+          : "PM review & snapshot",
       sub: "Phê duyệt chính thức là bước riêng",
       done: run?.state === "reviewed",
       active: run?.state === "awaiting_review",

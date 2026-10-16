@@ -8,7 +8,7 @@ Yêu cầu: Python 3.12+, Node 22+ (đã kiểm tra Node 24.19.0), npm, Bash. T�
 
 ```bash
 cd /workspace/pm-agent-platform
-bash scripts/install.sh
+bash scripts/install.sh  # cài platform + dependency BA pin commit
 bash scripts/start.sh
 ```
 
@@ -27,6 +27,18 @@ Hành trình thử trong khoảng 3 phút:
 7. Xem **Run & Handoff** và **Kênh thông báo**. Snapshot dùng cùng project/run; nút mở quay lại đúng workspace. Telegram chỉ là preview/inbox cục bộ.
 8. Reload trang để kiểm tra dữ liệu còn nguyên. Tạo project thứ hai để thử tách context. Quản lý notes từ Workspace để tạo phiên bản input mới cho run tiếp theo.
 
+## Thử BA harness thật bằng fixture
+
+Trong **Agent & Workflow**, chọn **Chạy BA harness fixture**. Workflow dùng context/SOW/notes công nợ và proposal có sẵn từ BA `0.2.0` @ `9f786144…`. Nó không dùng notes tùy ý của project để suy ra trusted context hoặc quyền phê duyệt.
+
+- Worker gọi BA CLI `--proposal`, kiểm tra canonical schema + domain, audit/fingerprints và manifest SHA-256, rồi nhập pack vào SQLite.
+- **Stories & AC** hiển thị đủ happy/edge/error; **RTM** và **UAT plan** lấy nguyên từ bundle.
+- **Nguồn & thay đổi** cho tải `bundle.json`, `review-pack.md`, `audit.json`, `manifest.json` nguyên bản đã xác minh.
+- Mở **Chỉnh proposal JSON** và **Nạp proposal mẫu** để thử sửa proposal. Ví dụ đổi evidence source ID thành giá trị không tồn tại: BA sẽ trả `Escalated`, hiển thị findings và không nhập artifact.
+- **Ghi nhận đã review** chỉ ghi quyết định platform. **Yêu cầu sửa** giữ nguyên pack và dừng tại `changes_requested`; operator sửa proposal và tạo run mới. Chưa có model tự diễn giải feedback hoặc field-level BA confirmations.
+
+`scripts/install.sh` cài BA như dependency cache `.local/agent-runtimes/ba/<commit>/`, từ các Git blob được pin/checksum; không thêm checkout Git nào vào workspace. Interpreter BA riêng cài theo lockfile upstream. Cần Git read access tới `khannitran-coder/Ba-Pm-agent` khi cài lần đầu; dùng authentication hiện có. Runtime sửa byte/file set sẽ bị từ chối, không tự ghi đè để bỏ qua kiểm tra. Có thể cài/kiểm tra lại riêng bằng `python3 scripts/prepare_ba_runtime.py`.
+
 ## Thật và mô phỏng
 
 | Thành phần | Trạng thái hiện tại |
@@ -36,10 +48,12 @@ Hành trình thử trong khoảng 3 phút:
 | Worker và run state machine | Chạy thật trong background task cùng process API, journal SQLite |
 | Run limits, timeout/retry, stale review guard | Có thực thi và kiểm thử; chỉ có các workflow cố định |
 | Artifact versions, JSON export, review, audit, snapshot | Lưu thật; content bất biến, review metadata được cập nhật |
-| Sinh BA, QA handoff, Snapshot Writer | Mô phỏng: mẫu cố định, không gọi BA harness hoặc LLM từ web |
+| Requirements Discovery / BA Draft | Mô phỏng theo notes; chưa có model phân tích |
+| BA Harness Fixture | BA CLI thật với fixture/supplied proposal; canonical/domain/manifest checks thật, không gọi model |
+| QA handoff, Snapshot Writer | Vẫn là các bước mô phỏng/tóm tắt nội bộ |
 | Nội dung bản nháp | Dùng tối đa 3 dòng notes không trống đầu, answer và feedback; không hiểu ngữ nghĩa, không tự giải quyết feedback |
-| Schema validation trong UI | Pydantic `platform-draft/1` thật; không phải BA canonical/domain validation |
-| BA harness độc lập | Đã khảo sát và chạy test/demo fixture ngoài web; xem bằng chứng trong docs |
+| Technical validation | Luồng mô phỏng: Pydantic `platform-draft/1`; luồng harness: canonical BA schema/domain + provenance/manifest thật |
+| BA pack / nguồn / review | Pack gốc và normalized view lưu riêng; không biến whole-pack review thành BA claim confirmation |
 | Project permission | Backend kiểm tra membership với danh tính `demo-pm` cố định; chưa đăng nhập, chưa có nhiều user thật |
 | Telegram | Lưu preferences và xem cùng snapshot thật; chưa có bot, webhook, scheduler, command hoặc identity linking |
 | Approval / UAT sign-off | Không triển khai; review không phải approval hoặc nghiệm thu |
@@ -50,7 +64,7 @@ SQLite mặc định `.local/platform.db` (ignored). Chọn file khác bằng `P
 ## Kiểm thử
 
 ```bash
-.venv/bin/python -m pytest tests/test_api.py -q
+.venv/bin/python -m pytest tests/test_api.py tests/test_ba_integration.py -q
 npm run build
 npm run test:e2e
 ```
@@ -63,7 +77,8 @@ Browser suite dùng Chromium đã cài tại `/usr/bin/chromium`, server riêng 
 - [Kiến trúc, mô hình dữ liệu, sequence và giới hạn](docs/ARCHITECTURE.md)
 - [Khảo sát 6 repo và xác nhận phiên bản BA remote](docs/REPOSITORY-SURVEY.md)
 - [Contract tích hợp BA, trạng thái và ranh giới tin cậy](docs/BA-CONTRACT.md)
+- [Cách chạy và giới hạn của BA fixture integration](docs/BA-INTEGRATION.md)
 - [Worker invocation schema đề xuất](contracts/agent-invocation.schema.json)
 - [Bằng chứng và giới hạn kiểm chứng](docs/VALIDATION.md)
 
-Repository GitHub của platform: [khannitran-coder/Multi-agent-platform](https://github.com/khannitran-coder/Multi-agent-platform), nhánh `main`. Người dùng đã xác nhận để repo public ở giai đoạn này; việc đổi private có thể thực hiện sau trong GitHub Settings. Checkout cloud hiện ở `/workspace/pm-agent-platform`; khi clone về máy khác, chạy các script từ thư mục clone. Sáu repo agent/reference ban đầu giữ nguyên. Cấu hình onboarding có hướng dẫn install/start; chưa kiểm chứng khôi phục môi trường trong một cloud task mới. Lưu mã lên GitHub không tạo hosting hoặc public web preview.
+Repository GitHub của platform: [khannitran-coder/Multi-agent-platform](https://github.com/khannitran-coder/Multi-agent-platform), nhánh `main`. Người dùng đã xác nhận để repo public ở giai đoạn này; việc đổi private có thể thực hiện sau trong GitHub Settings. Checkout cloud hiện ở `/workspace/pm-agent-platform`; khi clone về máy khác, chạy các script từ thư mục clone. Sáu checkout agent/reference cũ đã được gỡ theo yêu cầu; chỉ giữ platform. Repository trên GitHub của các agent không bị xóa. Cấu hình onboarding có hướng dẫn install/start; chưa kiểm chứng khôi phục môi trường trong một cloud task mới. Lưu mã lên GitHub không tạo hosting hoặc public web preview.

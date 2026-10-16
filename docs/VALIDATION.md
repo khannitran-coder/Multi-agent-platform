@@ -1,3 +1,31 @@
+# Kiểm chứng BA harness fixture integration — 16/10/2026
+
+Bản hiện tại đã nối web với BA CLI thật ở chế độ supplied-proposal trên fixture công nợ. Chỉ kiểm chứng kỹ thuật; chưa phải business UAT hoặc formal approval.
+
+| Kiểm tra | Kết quả |
+|---|---|
+| `python3 scripts/prepare_ba_runtime.py` | PASS: tải Git pin commit, kiểm 63 file, venv/lock và pip check; không thêm Git checkout |
+| `bash scripts/install.sh` | PASS: cài platform + BA runtime, npm ci và build; cache đã cài được kiểm lại khi chạy lặp |
+| `.venv/bin/python -m pytest tests/test_api.py tests/test_ba_integration.py -q` | **19 passed**, 0 failed/skipped/xfail; một Starlette/AnyIO deprecation warning |
+| `npm run build` | PASS: TypeScript và Vite |
+| `npm run test:e2e` | **5 passed**, Chromium desktop/mobile |
+| Server thật qua `scripts/start.sh` | PASS: health mode prototype, runtime ready, project/run fixture → awaiting_review, manifest download đúng hash |
+| Workspace discovery | Chỉ một project checkout `/workspace/pm-agent-platform`; source BA là dependency cache không có `.git` |
+
+Backend tests chạy CLI thật: import đủ 2 requirements, 1 story, cả happy/edge/error và 3 UAT test plans; story vẫn Blocked khi thiếu confirmation. Kiểm tra source giả → Escalated/không artifact; input context/authority ngoài schema bị từ chối; proposal size bound; project membership; review không tạo BA confirmations; needs_changes không tự rewrite pack; replay; tamper hash/file và rehashed bundle/audit; path/symlink escape; runtime source sửa byte; timeout/retry exhaustion. Không dùng passing pack giả để thay harness.
+
+Browser journey mới: tạo project → workflow BA fixture → mở canonical artifact → xem đủ AC/RTM → tải manifest → record review nhưng approval vẫn chưa có → request changes giữ một phiên bản. Negative journey sửa evidence source trong JSON và nhận `REQ-01: unknown source`, không có artifact. Mobile BA workflow/editor/artifact/download không overflow ở 390×844. Hai hành trình prototype cũ vẫn pass.
+
+Kết quả và ảnh: `.local/evidence/browser-results.json`, `08-ba-harness-review.png`, `09-ba-gate-rejection.png`, `10-ba-mobile.png`, `ba-live-smoke.json`. Log install: `.local/ba-integration-install.log`. Main instance có project synthetic **BA Harness · Công nợ (fixture)** để tiếp tục review; không thay dự án đã có. Bộ test dùng DB tách riêng.
+
+Chưa triển khai: phân tích notes tùy ý bằng BA/model, trusted-context editor với real identity/authority, claim-level confirmation, dynamic handoff dispatch, live model/token budget, channel identity/delivery, production/deploy và formal approval. Nội dung fixture không phải bằng chứng model quality. Readonly source/hash checks không phải enforced sandbox hoặc signed audit.
+
+---
+
+## Baseline prototype trước khi nối harness (lưu vết)
+
+Các trạng thái “chưa nối BA” bên dưới mô tả baseline cũ; trạng thái hiện tại ở bảng trên.
+
 # Kiểm chứng prototype — 16/10/2026
 
 Kết quả dưới đây là kiểm tra kỹ thuật trên cloud instance hiện tại, không phải PM UAT, nghiệm thu nghiệp vụ hay production approval.

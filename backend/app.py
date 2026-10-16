@@ -4,10 +4,11 @@ import time
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from . import store as db
 from . import worker
+from . import ba_runtime, ba_adapter, ba_jobs
 from .contracts import ProjectInput, TextInput, RunInput, ReviewInput, ChannelInput, REGISTRY
 
 @asynccontextmanager
@@ -46,11 +47,54 @@ def run_access(c, rid):
 def health():
     with db.connect() as c:
         c.execute('SELECT 1').fetchone()
-    return {'status':'ok', 'mode':'simulation', 'persistence':'sqlite', 'identity':'fixed demo-pm'}
+    return {'status':'ok', 'mode':'prototype', 'persistence':'sqlite', 'identity':'fixed demo-pm','live_model_enabled':False}
 
 @app.get('/api/agents')
 def agents():
-    return REGISTRY
+    entries=[dict(a) for a in REGISTRY]
+    try:
+        ba_runtime.source();ba_runtime.interpreter()
+        status='ready'
+    except ba_runtime.RuntimeIntegrityError:
+        status='unavailable'
+    entries[0].update(harness_status=status,harness_workflow=ba_adapter.WORKFLOW)
+    return entries
+
+@app.get('/api/ba/fixture')
+def ba_fixture():
+    try:
+        context,proposal=ba_runtime.fixtures()
+    except ba_runtime.RuntimeIntegrityError as exc:
+        raise HTTPException(503,str(exc)) from None
+    return {'label':'Fixture — Báo cáo công nợ','context':context,'proposal':proposal,'agent_commit':ba_runtime.REFERENCE['commit']}
+
+@app.get('/api/runs/{rid}/ba')
+def ba_invocation(rid: str):
+    with db.connect() as c:
+        run_access(c,rid)
+        raw=c.execute('SELECT * FROM ba_invocations WHERE run_id=?',(rid,)).fetchone()
+        if not raw:raise HTTPException(404,'Run không dùng BA harness.')
+        value=dict(raw)
+        for name in ['context_json','proposal_json','result_json']:
+            value[name.removesuffix('_json')]=json.loads(value.pop(name))
+        return value
+
+@app.get('/api/artifacts/{aid}/ba-pack')
+def ba_pack(aid: str):
+    with db.connect() as c:
+        artifact=c.execute('SELECT * FROM artifacts WHERE id=?',(aid,)).fetchone()
+        if not artifact:raise HTTPException(404,'Không tìm thấy artifact.')
+        access(c,artifact['project_id'])
+        raw=c.execute('SELECT * FROM ba_packs WHERE artifact_id=?',(aid,)).fetchone()
+        if not raw:raise HTTPException(404,'Artifact không phải pack BA.')
+        return {'artifact_id':aid,'run_hash':raw['run_hash'],'files':json.loads(raw['files_json'])}
+
+@app.get('/api/artifacts/{aid}/ba-pack/{name}')
+def ba_pack_file(aid: str, name: str):
+    if name not in ba_adapter.FILES:raise HTTPException(404,'Unknown BA pack file.')
+    pack=ba_pack(aid)
+    return Response(pack['files'][name],media_type='text/markdown' if name.endswith('.md') else 'application/json',
+                    headers={'Content-Disposition':'attachment; filename="'+name+'"'})
 
 @app.get('/api/projects')
 def projects():
@@ -95,21 +139,35 @@ def source(pid: str, body: TextInput):
 
 @app.post('/api/projects/{pid}/runs', status_code=201)
 def start_run(pid: str, body: RunInput):
+    fixture=None
+    if body.workflow==ba_adapter.WORKFLOW:
+        try:
+            fixture=ba_runtime.fixtures();ba_runtime.interpreter()
+        except ba_runtime.RuntimeIntegrityError as exc:
+            raise HTTPException(503,str(exc)) from None
     with db.connect() as c:
         access(c, pid)
         if c.execute("SELECT 1 FROM runs WHERE project_id=? AND state IN ('queued','running','awaiting_input')", (pid,)).fetchone():
             raise HTTPException(409, 'Project đã có một run đang xử lý hoặc chờ câu trả lời.')
-        sid = c.execute('SELECT id FROM sources WHERE project_id=? ORDER BY version DESC LIMIT 1', (pid,)).fetchone()[0]
+        sid = None if fixture else c.execute('SELECT id FROM sources WHERE project_id=? ORDER BY version DESC LIMIT 1', (pid,)).fetchone()[0]
         rid = db.uid('run')
-        c.execute('INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', (rid,pid,body.workflow,'queued','intake',1,1,0,time.time()+0.3,db.now(),db.now(),sid,''))
-        db.event(c, pid, rid, 'run.queued', 'Giới hạn: 6 lượt, 3 phiên bản, 1 retry/bước, 20s/bước; chi phí model = 0.')
-        db.message(c, rid, 'system', 'Workflow mô phỏng đã được xếp hàng. Input đã khóa theo phiên bản notes.')
+        c.execute('INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', (rid,pid,body.workflow,'queued','ba_run' if fixture else 'intake',1,1,0,time.time()+0.3,db.now(),db.now(),sid,''))
+        if fixture:
+            context,default_proposal=fixture
+            ba_jobs.create(c,rid,context,body.proposal if body.proposal is not None else default_proposal)
+            db.message(c,rid,'system','BA harness thật, context công nợ fixture cố định. Proposal cung cấp sẵn; không gọi model, không dùng notes project để tạo trusted context.')
+        db.event(c, pid, rid, 'run.queued',
+            'BA fixture: CLI timeout 15s, verify 10s, lease 35s, 1 retry runtime; chi phí model = 0.' if fixture
+            else 'Giới hạn: 6 lượt, 3 phiên bản, 1 retry/bước, 20s/bước; chi phí model = 0.')
+        if not fixture:db.message(c, rid, 'system', 'Workflow mô phỏng đã được xếp hàng. Input đã khóa theo phiên bản notes.')
         return {'id':rid}
 
 @app.post('/api/runs/{rid}/answers')
 def answer(rid: str, body: TextInput):
     with db.connect() as c:
         r = run_access(c, rid)
+        if r['workflow']==ba_adapter.WORKFLOW:
+            raise HTTPException(409,'Fixture BA không nhận câu trả lời để tạo authority. Tạo run mới với proposal đã sửa.')
         if r['state'] != 'awaiting_input':
             raise HTTPException(409, 'Run không chờ câu trả lời; dữ liệu có thể đã được cập nhật.')
         db.message(c, rid, 'user', body.text)
@@ -134,7 +192,11 @@ def review(aid: str, body: ReviewInput):
         c.execute('UPDATE artifacts SET business=? WHERE id=?', (body.decision,aid))
         db.event(c, r['project_id'], r['id'], 'review.'+body.decision, f'Artifact v{a["version"]}: {body.comment}')
         if body.decision == 'needs_changes':
-            c.execute("UPDATE runs SET state='queued',step='draft',version=version+1,turns=turns+1,attempts=0,due=?,feedback=?,updated_at=? WHERE id=?", (time.time()+0.5,body.comment,db.now(),r['id']))
+            if r['workflow']==ba_adapter.WORKFLOW:
+                c.execute("UPDATE runs SET state='changes_requested',feedback=?,updated_at=? WHERE id=?",(body.comment,db.now(),r['id']))
+                db.message(c,r['id'],'system','Đã ghi nhận yêu cầu sửa fixture BA. Chỉnh proposal JSON và tạo run mới; harness không tự diễn giải feedback.')
+            else:
+                c.execute("UPDATE runs SET state='queued',step='draft',version=version+1,turns=turns+1,attempts=0,due=?,feedback=?,updated_at=? WHERE id=?", (time.time()+0.5,body.comment,db.now(),r['id']))
             db.message(c, r['id'], 'system', 'PM yêu cầu sửa: '+body.comment)
         else:
             c.execute("UPDATE runs SET state='reviewed',updated_at=? WHERE id=?", (db.now(),r['id']))

@@ -6,5 +6,6 @@ if [ ! -x .venv/bin/python ]; then
   python3 -m venv .venv
 fi
 .venv/bin/python -m pip install --cache-dir .local/pip-cache -r requirements.lock.txt
+python3 scripts/prepare_ba_runtime.py
 npm ci --cache .local/npm-cache --no-audit --no-fund
 npm run build

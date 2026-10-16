@@ -29,7 +29,7 @@ Tạo project và objective → nhập notes/SOW → chọn BA hoặc Requiremen
 - Decision log và approval gate riêng với reviewer/approver thực sự được xác thực.
 - Telegram read-only `/status`, `/latest`, snapshot sau opt-in và identity linking; detailed review về web.
 
-Prototype hiện đã cho thử UX của phần lớn hành trình này. Auth, BA adapter thật, artifact diff, cancel, deadline và budget model chưa được triển khai. File input chỉ có nhập text; không có parser PDF/DOCX hoặc quản lý kho file.
+Prototype hiện đã cho thử UX của phần lớn hành trình này. BA supplied-proposal fixture adapter đã nối web. Auth, trusted context cho arbitrary notes, artifact diff, cancel, deadline người dùng và budget model còn chưa triển khai. File input chỉ có nhập text; không có parser PDF/DOCX hoặc quản lý kho file.
 
 ## Để sau
 
@@ -47,4 +47,6 @@ Live models và đánh giá chất lượng; risk/progress/weekly-report adapter
 
 ## Lát cắt triển khai kế tiếp
 
-Ưu tiên một vertical slice **web → BA supplied-proposal fixture → canonical/domain validation → manifest import → artifact review**. Pin commit remote đã xác minh, giữ harness ở repo riêng, không dùng live model. Acceptance: input/operator trust tách khỏi notes; AwaitingInput/AwaitingProposal không bị báo lỗi máy; pack được kiểm tra schema/hash/path; review gắn đúng revision; integration test mô phỏng lỗi và replay. Sau lát cắt này, làm auth/project roles/approval và đánh giá live model trong runtime được phép; Telegram chỉ kết nối sau identity linking và authorization tests.
+Slice **web → BA supplied-proposal fixture → canonical/domain validation → manifest import → artifact review** đã được triển khai và kiểm thử trong `BA-INTEGRATION.md`. Fixture công nợ được pin commit, không đại diện việc phân tích notes tùy ý của project.
+
+Ưu tiên tiếp theo: **trusted-context workbench** cho source/SOW có version và preflight, khai báo data authorization/authority do operator kiểm soát; kết hợp project identity/roles trước khi dùng dữ liệu thật. Sau đó mới đánh giá model generation có runtime isolation và budget. Telegram kết nối sau identity linking/authorization tests; formal approval vẫn là bước riêng.
