@@ -1,0 +1,28 @@
+{
+  "contract_version": "1",
+  "project_id": "prj-demo",
+  "run_id": "run-demo",
+  "step_id": "step-ba-1",
+  "idempotency_key": "run-demo:step-ba-1:input-hash",
+  "agent": {
+    "id": "ba-requirements",
+    "version": "0.2.0",
+    "commit": "9f786144e4a84361a373abacf45107c26c2c0262"
+  },
+  "actor_ref": "authenticated-project-member-reference",
+  "input": {
+    "context_ref": "artifact-trusted-context-1",
+    "context_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "proposal_ref": "artifact-supplied-proposal-1",
+    "mode": "supplied-proposal"
+  },
+  "lineage": { "source_ids": ["source-demo-v1"], "parent_step_id": null },
+  "limits": {
+    "timeout_seconds": 30,
+    "max_attempts": 2,
+    "max_handoffs": 3,
+    "max_turns": 6,
+    "max_model_usd": 0,
+    "allow_live_model": false
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agentdesk:invocation:1",
+  "title": "Proposed future worker invocation; not used by simulator",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "project_id",
+    "run_id",
+    "step_id",
+    "idempotency_key",
+    "agent",
+    "actor_ref",
+    "input",
+    "lineage",
+    "limits"
+  ],
+  "properties": {
+    "contract_version": { "const": "1" },
+    "project_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "step_id": { "type": "string", "minLength": 1 },
+    "idempotency_key": { "type": "string", "minLength": 1 },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "commit"],
+      "properties": {
+        "id": { "const": "ba-requirements" },
+        "version": { "const": "0.2.0" },
+        "commit": { "const": "9f786144e4a84361a373abacf45107c26c2c0262" }
+      }
+    },
+    "actor_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Server-issued authenticated identity reference, not a principal asserted by notes"
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context_ref", "context_sha256", "proposal_ref", "mode"],
+      "properties": {
+        "context_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Internal artifact ID, resolved by worker; never arbitrary user path"
+        },
+        "context_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "proposal_ref": { "type": ["string", "null"] },
+        "mode": { "enum": ["prepare", "supplied-proposal"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "supplied-proposal" } } },
+          "then": {
+            "properties": {
+              "proposal_ref": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ]
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ids", "parent_step_id"],
+      "properties": {
+        "source_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "parent_step_id": { "type": ["string", "null"] }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeout_seconds",
+        "max_attempts",
+        "max_handoffs",
+        "max_turns",
+        "max_model_usd",
+        "allow_live_model"
+      ],
+      "properties": {
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "max_attempts": { "type": "integer", "minimum": 1, "maximum": 2 },
+        "max_handoffs": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "max_turns": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "max_model_usd": { "const": 0 },
+        "allow_live_model": { "const": false }
+      }
+    }
+  }
+}
